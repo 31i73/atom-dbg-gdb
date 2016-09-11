@@ -1,7 +1,7 @@
 {
   "name": "dbg-gdb",
   "main": "./lib/main",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "A GDB debugger for Atom",
   "keywords": [
     "gdb",
@@ -26,26 +26,25 @@
   "package-deps": [
     "dbg"
   ],
-  "dependencies": {
-  },
+  "dependencies": {},
   "providedServices": {
     "dbgProvider": {
-			"description": "Provides a dbg gdb debugger",
-			"versions": {
-				"0.1.0": "provideDbgProvider"
-			}
-		}
+      "description": "Provides a dbg gdb debugger",
+      "versions": {
+        "0.1.0": "provideDbgProvider"
+      }
+    }
   },
   "consumedServices": {
     "dbg": {
-			"versions": {
-				"^0.1.0": "consumeDbg"
-			}
-		},
-		"output-panel": {
-			"versions": {
-				"^0.1.0": "consumeOutputPanel"
-			}
-		}
-	}
+      "versions": {
+        "^0.1.0": "consumeDbg"
+      }
+    },
+    "output-panel": {
+      "versions": {
+        "^0.1.0": "consumeOutputPanel"
+      }
+    }
+  }
 }
