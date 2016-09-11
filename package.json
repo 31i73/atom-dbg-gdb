@@ -4,12 +4,28 @@
   "version": "0.0.0",
   "description": "A GDB debugger for Atom",
   "keywords": [
+    "gdb",
+    "debug",
+    "debugger",
+    "C",
+    "C++",
+    "D",
+    "Go",
+    "Objective-C",
+    "Fortran",
+    "Pascal",
+    "Rust",
+    "assembly",
+    "Ada"
   ],
   "repository": "https://github.com/31i73/atom-dbg-gdb",
   "license": "MIT",
   "engines": {
     "atom": ">=1.0.0 <2.0.0"
   },
+  "package-deps": [
+    "dbg"
+  ],
   "dependencies": {
   },
   "providedServices": {
