@@ -2,10 +2,9 @@
   "name": "dbg-gdb",
   "main": "./lib/main",
   "version": "0.1.0",
-  "description": "A GDB debugger for Atom",
+  "description": "An interactive GDB debugger for Atom",
   "keywords": [
     "gdb",
-    "debug",
     "debugger",
     "C",
     "C++",

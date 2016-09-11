@@ -1,6 +1,6 @@
 # dbg-gdb package
 
-A GDB debugger for Atom
+An interactive GDB debugger for Atom
 
 This package requires [dbg](https://atom.io/packages/dbg) to be installed  
 This package also supports [output-panel](https://atom.io/packages/output-panel) for displaying process output
