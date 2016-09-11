@@ -1,8 +1,6 @@
 parseMi2 = require './parseMi2'
 {BufferedProcess, CompositeDisposable, Emitter} = require 'atom'
 
-window.test = parseMi2
-
 module.exports = DbgGdb =
 	dbg: null
 	breakpoints: []
