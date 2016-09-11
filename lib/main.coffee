@@ -289,10 +289,7 @@ module.exports = DbgGdb =
 
 		canHandleOptions: (options) =>
 			return new Promise (fulfill, reject) =>
-				if @outputPanel
-					fulfill true
-				else
-					fulfill false
+				fulfill true
 
 		debug: @debug.bind this
 		stop: @stop.bind this
