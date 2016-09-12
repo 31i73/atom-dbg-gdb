@@ -147,32 +147,34 @@ module.exports = DbgGdb =
 							@frame = 0
 							@refreshFrame()
 
-		@sendMiCommand 'gdb-set mi-async on'
-			.catch =>
-				@sendMiCommand 'gdb-set target-async on'
-					.catch (error) =>
-						@handleMiError error, 'Unable to debug this with GDB'
-						@dbg.stop()
-
+		@sendMiCommand 'file-exec-and-symbols '+JSON.stringify(options.path)
 			.then =>
-				@sendMiCommand 'file-exec-and-symbols '+JSON.stringify(options.path)
-					.then =>
-						for breakpoint in @breakpoints
-							@sendMiCommand 'break-insert '+JSON.stringify(breakpoint.path)+':'+breakpoint.line
+				begin = () =>
+					for breakpoint in @breakpoints
+						@sendMiCommand 'break-insert '+JSON.stringify(breakpoint.path)+':'+breakpoint.line
 
-						@sendMiCommand 'exec-run'
+					@sendMiCommand 'exec-run'
+						.catch (error) =>
+							@handleMiError error, 'Unable to debug this with GDB'
+							@dbg.stop()
+
+				@sendMiCommand 'gdb-set mi-async on'
+					.then => begin()
+					.catch =>
+						@sendMiCommand 'gdb-set target-async on'
+							.then => begin()
 							.catch (error) =>
 								@handleMiError error, 'Unable to debug this with GDB'
 								@dbg.stop()
 
-					.catch (error) =>
-						if error.match /not in executable format/
-							atom.notifications.addError 'This file cannot be debugged',
-								description: 'It is not recognised by GDB as a supported executable file'
-								dismissable: true
-						else
-							@handleMiError error, 'Unable to debug this with GDB'
-						@dbg.stop()
+			.catch (error) =>
+				if error.match /not in executable format/
+					atom.notifications.addError 'This file cannot be debugged',
+						description: 'It is not recognised by GDB as a supported executable file'
+						dismissable: true
+				else
+					@handleMiError error, 'Unable to debug this with GDB'
+				@dbg.stop()
 
 	cleanupFrame: ->
 		return Promise.all (@sendMiCommand 'var-delete '+name for name in @variableObjects)
