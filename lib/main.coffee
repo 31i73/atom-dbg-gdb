@@ -155,10 +155,10 @@ module.exports = DbgGdb =
 						@dbg.stop()
 
 			.then =>
-				@sendMiCommand 'file-exec-and-symbols '+options.path
+				@sendMiCommand 'file-exec-and-symbols '+JSON.stringify(options.path)
 					.then =>
 						for breakpoint in @breakpoints
-							@sendMiCommand 'break-insert '+breakpoint.path+':'+breakpoint.line
+							@sendMiCommand 'break-insert '+JSON.stringify(breakpoint.path)+':'+breakpoint.line
 
 						@sendMiCommand 'exec-run'
 							.catch (error) =>
@@ -168,7 +168,7 @@ module.exports = DbgGdb =
 					.catch (error) =>
 						if error.match /not in executable format/
 							atom.notifications.addError 'This file cannot be debugged',
-								description: 'It is not recognised as an executable file'
+								description: 'It is not recognised by GDB as a supported executable file'
 								dismissable: true
 						else
 							@handleMiError error, 'Unable to debug this with GDB'
@@ -336,7 +336,7 @@ module.exports = DbgGdb =
 
 	addBreakpoint: (breakpoint) ->
 		@breakpoints.push breakpoint
-		@sendMiCommand 'break-insert '+breakpoint.path+':'+breakpoint.line
+		@sendMiCommand 'break-insert '+JSON.stringify(breakpoint.path)+':'+breakpoint.line
 
 	removeBreakpoint: (breakpoint) ->
 		for i,compare in @breakpoints
