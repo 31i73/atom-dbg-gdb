@@ -50,7 +50,7 @@ module.exports = DbgGdb =
 			options:
 				cwd: options.cwd
 			stdout: (data) =>
-				for line in data.replace(/\n$/,'').split('\n')
+				for line in data.replace(/\r?\n$/,'').split(/\r?\n/)
 					if match = line.match matchAsyncHeader
 						type = match[2]
 						data = if match[3] then parseMi2 match[3] else {}
@@ -331,7 +331,7 @@ module.exports = DbgGdb =
 
 	handleMiError: (error, title) ->
 		atom.notifications.addError title||'Error received from GDB',
-			description: 'GDB said:\n\n> '+error.trim().split('\n').join('\n\n> ')
+			description: 'GDB said:\n\n> '+error.trim().split(/\r?\n/).join('\n\n> ')
 			dismissable: true
 
 	addBreakpoint: (breakpoint) ->
