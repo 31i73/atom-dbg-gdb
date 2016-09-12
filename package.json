@@ -30,14 +30,14 @@
     "dbgProvider": {
       "description": "Provides a dbg gdb debugger",
       "versions": {
-        "0.2.0": "provideDbgProvider"
+        "1.0.0": "provideDbgProvider"
       }
     }
   },
   "consumedServices": {
     "dbg": {
       "versions": {
-        "^0.1.0": "consumeDbg"
+        "^1.0.0": "consumeDbg"
       }
     },
     "output-panel": {
