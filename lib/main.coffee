@@ -1,6 +1,9 @@
 parseMi2 = require './parseMi2'
 {BufferedProcess, CompositeDisposable, Emitter} = require 'atom'
 
+escapePath = (path) ->
+	return (path.replace /\\/g, '/').replace /[\s\t\n]/g, '\\ '
+
 module.exports = DbgGdb =
 	dbg: null
 	breakpoints: []
@@ -147,11 +150,11 @@ module.exports = DbgGdb =
 							@frame = 0
 							@refreshFrame()
 
-		@sendMiCommand 'file-exec-and-symbols '+JSON.stringify(options.path)
+		@sendMiCommand 'file-exec-and-symbols '+escapePath options.path
 			.then =>
 				begin = () =>
 					for breakpoint in @breakpoints
-						@sendMiCommand 'break-insert '+JSON.stringify(breakpoint.path)+':'+breakpoint.line
+						@sendMiCommand 'break-insert '+(escapePath breakpoint.path)+':'+breakpoint.line
 
 					@sendMiCommand 'exec-run'
 						.catch (error) =>
@@ -338,7 +341,7 @@ module.exports = DbgGdb =
 
 	addBreakpoint: (breakpoint) ->
 		@breakpoints.push breakpoint
-		@sendMiCommand 'break-insert '+JSON.stringify(breakpoint.path)+':'+breakpoint.line
+		@sendMiCommand 'break-insert '+(escapePath breakpoint.path)+':'+breakpoint.line
 
 	removeBreakpoint: (breakpoint) ->
 		for i,compare in @breakpoints
