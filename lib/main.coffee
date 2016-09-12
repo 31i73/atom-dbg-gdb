@@ -8,10 +8,11 @@ module.exports = DbgGdb =
 	process: null
 	processAwaiting: false
 	processQueued: []
+	variableObjects: []
 	thread: 1
 	frame: 0
 	outputPanel: null
-	miEmitter: new Emitter()
+	miEmitter: null
 
 	activate: (state) ->
 		@disposable = new CompositeDisposable
@@ -41,6 +42,7 @@ module.exports = DbgGdb =
 
 		outputRevealed = @outputPanel?.isVisible();
 
+		@miEmitter = new Emitter()
 		# @process = @outputPanel.run true, 'lldb-mi', ['-o','run',options.path,'--'].concat(options.args), {
 		@process = new BufferedProcess
 			command: 'gdb'
@@ -172,55 +174,123 @@ module.exports = DbgGdb =
 							@handleMiError error, 'Unable to debug this with GDB'
 						@dbg.stop()
 
+	cleanupFrame: ->
+		return Promise.all (@sendMiCommand 'var-delete '+name for name in @variableObjects)
+			.then =>
+				@variableObjects = []
+
 	stop: ->
+		# @cleanupFrame()
+		@variableObjects = []
+
 		@process?.kill();
 		@process = null
 		@processAwaiting = false
 		@processQueued = []
 
 	continue: ->
-		@sendMiCommand 'exec-continue --all'
-			.catch (error) => @handleMiError error
+		@cleanupFrame().then =>
+			@sendMiCommand 'exec-continue --all'
+				.catch (error) => @handleMiError error
 
 	pause: ->
-		@sendMiCommand 'exec-interrupt --all'
-			.catch (error) => @handleMiError error
+		@cleanupFrame().then =>
+			@sendMiCommand 'exec-interrupt --all'
+				.catch (error) => @handleMiError error
 
 	selectFrame: (index) ->
-		reversedIndex = @stackList.length-1-index
-		@frame = reversedIndex
-		@ui.setFrame index
-		@refreshFrame()
+		@cleanupFrame().then =>
+			reversedIndex = @stackList.length-1-index
+			@frame = reversedIndex
+			@ui.setFrame index
+			@refreshFrame()
+
+	getVariableChildren: (name) -> return new Promise (fulfill) =>
+		@sendMiCommand 'var-list-children 1 '+name
+			.catch (error) =>
+				@handleMiError error
+				fulfill []
+
+			.then ({type, data}) =>
+				children = []
+				if data.children then for child in data.children
+					children.push
+						name: child.exp
+						value: child.value
+						expandable: child.numchild and parseInt(child.numchild) > 0
+				fulfill children
 
 	selectThread: (index) ->
-		@thread = index
-		@ui.setThread index
-		@refreshFrame()
+		@cleanupFrame().then =>
+			@thread = index
+			@ui.setThread index
+			@refreshFrame()
 
 	refreshFrame: ->
-		@sendMiCommand 'stack-list-variables --thread '+@thread+' --frame '+@frame+' 2'
+		# @sendMiCommand 'stack-list-variables --thread '+@thread+' --frame '+@frame+' 2'
+		# 	.catch (error) => @handleMiError error
+		# 	.then ({type, data}) =>
+		# 		variables = []
+		# 		if data.variables
+		# 			for variable in data.variables
+		# 				variables.push
+		# 					name: variable.name
+		# 					type: variable.type
+		# 					value: variable.value
+		# 		@ui.setVariables variables
+
+		@sendMiCommand 'stack-list-variables --thread '+@thread+' --frame '+@frame+' 1'
 			.catch (error) => @handleMiError error
 			.then ({type, data}) =>
 				variables = []
+				pending = 0
+				start = -> pending++
+				stop = =>
+					pending--
+					if !pending
+						@ui.setVariables variables
+
+				start()
 				if data.variables
 					for variable in data.variables
-						variables.push
-							name: variable.name
-							type: variable.type
-							value: variable.value
-				@ui.setVariables variables
+						if variable.value==undefined or variable.value.match(/^[{\[]/)
+							do (variable) =>
+								start()
+								@sendMiCommand 'var-create '+variable.name+' * '+variable.name
+									.then ({type, data}) =>
+										@variableObjects.push data.name
+										variables.push
+											name: variable.name
+											value: variable.value
+											expandable: data.numchild and (parseInt data.numchild) > 0
+										stop()
+
+									.catch (error) =>
+										@handleMiError error
+										variables.push
+											name: variable.name
+											value: variable.value
+										stop()
+						else
+							variables.push
+								name: variable.name
+								value: variable.value
+				stop()
 
 	stepIn: ->
-		@sendMiCommand 'exec-step'
-			.catch (error) => @handleMiError error
+		@cleanupFrame().then =>
+			@sendMiCommand 'exec-step'
+				.catch (error) => @handleMiError error
 
 	stepOver: ->
-		@sendMiCommand 'exec-next'
-			.catch (error) => @handleMiError error
+		@cleanupFrame().then =>
+			@sendMiCommand 'exec-next'
+				.catch (error) => @handleMiError error
 
 	stepOut: ->
-		@sendMiCommand 'exec-finish'
-			.catch (error) => @handleMiError error
+		@cleanupFrame().then =>
+			@sendMiCommand 'exec-finish'
+				.catch (error) => @handleMiError error
 
 	sendMiCommand: (command) ->
 		if @processAwaiting
@@ -296,6 +366,7 @@ module.exports = DbgGdb =
 		pause: @pause.bind this
 
 		selectFrame: @selectFrame.bind this
+		getVariableChildren: @getVariableChildren.bind this
 
 		stepIn: @stepIn.bind this
 		stepOver: @stepOver.bind this
