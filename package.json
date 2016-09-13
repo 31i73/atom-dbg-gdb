@@ -32,6 +32,12 @@
       "versions": {
         "1.0.0": "provideDbgProvider"
       }
+    },
+    "dbg-gdb": {
+      "description": "Detailed control of the dbg-gdb debugger",
+      "versions": {
+        "1.0.0": "provideDbgGdb"
+      }
     }
   },
   "consumedServices": {

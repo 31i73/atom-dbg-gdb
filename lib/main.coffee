@@ -5,6 +5,7 @@ escapePath = (path) ->
 	return (path.replace /\\/g, '/').replace /[\s\t\n]/g, '\\ '
 
 module.exports = DbgGdb =
+	dbgGdbProvider: new Emitter()
 	dbg: null
 	breakpoints: []
 	ui: null
@@ -14,6 +15,7 @@ module.exports = DbgGdb =
 	variableObjects: []
 	thread: 1
 	frame: 0
+	frames: []
 	outputPanel: null
 	miEmitter: null
 
@@ -108,6 +110,7 @@ module.exports = DbgGdb =
 							stack = []
 							lastValid = false
 							@stackList = data.stack
+							@frames = []
 							if data.stack.length>0 then for i in [0..data.stack.length-1]
 								frame = data.stack[i]
 								description
@@ -133,6 +136,9 @@ module.exports = DbgGdb =
 
 								if isLocal and lastValid==false #get the first valid as the last, as this list is reversed
 									lastValid = i
+
+								@frames.push
+									path: frame.file
 
 								stack.unshift
 									local: isLocal
@@ -218,12 +224,42 @@ module.exports = DbgGdb =
 
 			.then ({type, data}) =>
 				children = []
+
+				pending = 0
+				start = () =>
+					pending++
+				stop = () =>
+					pending--
+					if !pending
+						fulfill children
+
+				start()
 				if data.children then for child in data.children
-					children.push
+					variable =
+						path: @frames[@frame].path
 						name: child.exp
+						identifier: child.name
 						value: child.value
-						expandable: child.numchild and parseInt(child.numchild) > 0
-				fulfill children
+					@dbgGdbProvider.emit 'mapVariable', variable
+
+					if variable.collapse
+						start()
+						@getVariableChildren child.name
+							.then (grandChildren) =>
+								for grandChild in grandChildren
+									children.push
+										display: grandChild.display
+										name: child.exp+'.'+grandChild.name
+										value: grandChild.value
+										expandable: grandChild.expandable
+								stop()
+					else
+						children.push
+							display: variable.name
+							name: child.exp
+							value: variable.value
+							expandable: child.numchild and parseInt(child.numchild) > 0
+				stop()
 
 	selectThread: (index) ->
 		@cleanupFrame().then =>
@@ -258,28 +294,38 @@ module.exports = DbgGdb =
 				start()
 				if data.variables
 					for variable in data.variables
+						identifier =
+							path: @frames[@frame].path
+							name: variable.name
+							identifier: variable.name
+							value: variable.value
+						@dbgGdbProvider.emit 'mapVariable', identifier
+
 						if variable.value==undefined or variable.value.match(/^[{\[]/)
-							do (variable) =>
+							do (variable, identifier) =>
 								start()
 								@sendMiCommand 'var-create '+variable.name+' * '+variable.name
 									.then ({type, data}) =>
 										@variableObjects.push data.name
 										variables.push
+											display: identifier.name
 											name: variable.name
-											value: variable.value
+											value: identifier.value
 											expandable: data.numchild and (parseInt data.numchild) > 0
 										stop()
 
 									.catch (error) =>
 										@handleMiError error
 										variables.push
+											display: identifier.name
 											name: variable.name
-											value: variable.value
+											value: identifier.value
 										stop()
 						else
 							variables.push
+								display: identifier.name
 								name: variable.name
-								value: variable.value
+								value: identifier.value
 				stop()
 
 	stepIn: ->
@@ -379,6 +425,9 @@ module.exports = DbgGdb =
 
 		addBreakpoint: @addBreakpoint.bind this
 		removeBreakpoint: @removeBreakpoint.bind this
+
+	provideDbgGdb: ->
+		return @dbgGdbProvider
 
 	consumeDbg: (dbg) ->
 		@dbg = dbg
