@@ -12,6 +12,7 @@ module.exports = DbgGdb =
 	processAwaiting: false
 	processQueued: []
 	variableObjects: []
+	errorEncountered: null
 	thread: 1
 	frame: 0
 	outputPanel: null
@@ -97,9 +98,15 @@ module.exports = DbgGdb =
 					@ui.running()
 
 				when 'stopped'
-					if data.reason == 'exited-normally'
-						@ui.stop()
-						return
+
+					switch data.reason
+						when 'exited-normally'
+							@ui.stop()
+							return
+
+						when 'signal-received'
+							@errorEncountered = data['signal-meaning'] or if data['signal-name'] then data['signal-name']+'signal received' else 'Signal received'
+							@ui.showError @errorEncountered
 
 					@ui.paused()
 
@@ -140,6 +147,7 @@ module.exports = DbgGdb =
 									line: if frame.line then parseInt(frame.line) else undefined
 									name: name
 									path: path
+									error: if i==0 then @errorEncountered else undefined
 
 							@ui.setStack stack
 							# if lastValid!=false
@@ -180,12 +188,14 @@ module.exports = DbgGdb =
 				@dbg.stop()
 
 	cleanupFrame: ->
+		@errorEncountered = null
 		return Promise.all (@sendMiCommand 'var-delete '+name for name in @variableObjects)
 			.then =>
 				@variableObjects = []
 
 	stop: ->
 		# @cleanupFrame()
+		@errorEncountered = null
 		@variableObjects = []
 
 		@process?.kill();
