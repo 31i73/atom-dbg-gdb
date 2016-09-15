@@ -105,8 +105,9 @@ module.exports = DbgGdb =
 							return
 
 						when 'signal-received'
-							@errorEncountered = data['signal-meaning'] or if data['signal-name'] then data['signal-name']+'signal received' else 'Signal received'
-							@ui.showError @errorEncountered
+							if data['signal-name'] != 'SIGINT'
+								@errorEncountered = data['signal-meaning'] or if data['signal-name'] then data['signal-name']+'signal received' else 'Signal received'
+								@ui.showError @errorEncountered
 
 					@ui.paused()
 
