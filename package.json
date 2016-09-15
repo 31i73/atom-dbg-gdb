@@ -25,7 +25,9 @@
   "package-deps": [
     "dbg"
   ],
-  "dependencies": {},
+  "dependencies": {
+    "atom-package-deps": "^4.0.1"
+  },
   "providedServices": {
     "dbgProvider": {
       "description": "Provides a dbg gdb debugger",

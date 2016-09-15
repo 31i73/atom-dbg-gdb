@@ -19,6 +19,8 @@ module.exports = DbgGdb =
 	miEmitter: null
 
 	activate: (state) ->
+		require('atom-package-deps').install('dbg-gdb');
+
 		@disposable = new CompositeDisposable
 		@disposable.add atom.commands.add '.tree-view .file', 'dbg-gdb:debug-file': =>
 			if !@dbg then return
