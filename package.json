@@ -1,7 +1,7 @@
 {
   "name": "dbg-gdb",
   "main": "./lib/main",
-  "version": "1.0.3",
+  "version": "1.2.0",
   "description": "An interactive GDB debugger for Atom",
   "keywords": [
     "gdb",
@@ -25,7 +25,9 @@
   "package-deps": [
     "dbg"
   ],
-  "dependencies": {},
+  "dependencies": {
+    "atom-package-deps": "^4.0.1"
+  },
   "providedServices": {
     "dbgProvider": {
       "description": "Provides a dbg gdb debugger",
