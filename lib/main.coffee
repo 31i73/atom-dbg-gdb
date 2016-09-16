@@ -134,7 +134,6 @@ module.exports = DbgGdb =
 								path = ''
 								if frame.file
 									path = frame.file.replace /^\.\//, ''
-									if frame.line then path += ':'+frame.line
 								else
 									path = frame.from
 									if frame.addr
