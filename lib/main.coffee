@@ -122,39 +122,46 @@ module.exports = DbgGdb =
 							@stackList = data.stack
 							@frames = []
 							if data.stack.length>0 then for i in [0..data.stack.length-1]
-								frame = data.stack[i]
-								description
+								stackFrame = data.stack[i]
 
-								name = ''
-								if frame.func
-									name = frame.func
+								frame =
+									name: ''
+									path: ''
+									line: if stackFrame.line then parseInt(stackFrame.line) else undefined
+									description: ''
+									file: stackFrame.fullname
+									isLocal: false
+
+								if stackFrame.func
+									frame.name = stackFrame.func
 								else
-									name = frame.addr
+									frame.name = stackFrame.addr
 
-								path = ''
-								if frame.file
-									path = frame.file.replace /^\.\//, ''
+								if stackFrame.file
+									frame.path = stackFrame.file.replace /^\.\//, ''
 								else
-									path = frame.from
-									if frame.addr
-										path += ':'+frame.addr
+									frame.path = stackFrame.from
+									if stackFrame.addr
+										frame.path += ':'+stackFrame.addr
 
-								description = name + ' - ' + path
+								frame.description = frame.name + ' - ' + frame.path
 
-								isLocal = frame.file && frame.file.match /^\.\//
+								frame.isLocal = stackFrame.file && stackFrame.file.match /^\.\//
 
-								if isLocal and lastValid==false #get the first valid as the last, as this list is reversed
+								@dbgGdbProvider.emit 'mapFrame', frame
+
+								if frame.isLocal and lastValid==false #get the first valid as the last, as this list is reversed
 									lastValid = i
 
 								@frames.push
 									path: frame.file
 
 								stack.unshift
-									local: isLocal
-									file: frame.fullname
-									line: if frame.line then parseInt(frame.line) else undefined
-									name: name
-									path: path
+									local: frame.isLocal
+									file: frame.file
+									line: frame.line
+									name: frame.name
+									path: frame.path
 									error: if i==0 then @errorEncountered else undefined
 
 							@ui.setStack stack
