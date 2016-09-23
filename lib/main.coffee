@@ -1,4 +1,5 @@
 parseMi2 = require './parseMi2'
+fs = require 'fs'
 {BufferedProcess, CompositeDisposable, Emitter} = require 'atom'
 
 escapePath = (path) ->
@@ -138,7 +139,14 @@ module.exports = DbgGdb =
 
 								description = name + ' - ' + path
 
-								isLocal = frame.file && frame.file.match /^\.\//
+								atom.project.getPaths()[0]
+
+								isLocal = false
+								if frame.file
+									if frame.file.match /^\.\//
+										isLocal = true
+									else if fs.existsSync(atom.project.getPaths()[0]+'/'+frame.file)
+										isLocal = true
 
 								if isLocal and lastValid==false #get the first valid as the last, as this list is reversed
 									lastValid = i
