@@ -77,6 +77,12 @@ module.exports = DbgGdb =
 								outputRevealed = true
 								@outputPanel.show()
 							@outputPanel.print line
+			stderr: (data) =>
+				if @outputPanel
+					if !outputRevealed
+						outputRevealed = true
+						@outputPanel.show()
+					@outputPanel.print line for line in data.replace(/\r?\n$/,'').split(/\r?\n/)
 
 			exit: (data) =>
 				@miEmitter.emit 'exit'
