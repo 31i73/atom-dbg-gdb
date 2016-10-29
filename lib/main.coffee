@@ -248,6 +248,7 @@ module.exports = DbgGdb =
 				if data.children then for child in data.children
 					children.push
 						name: child.exp
+						type: child.type
 						value: child.value
 						expandable: child.numchild and parseInt(child.numchild) > 0
 				fulfill children
@@ -285,28 +286,25 @@ module.exports = DbgGdb =
 				start()
 				if data.variables
 					for variable in data.variables
-						if variable.value==undefined or variable.value.match(/^[{\[]/)
-							do (variable) =>
-								start()
-								@sendMiCommand 'var-create '+variable.name+' * '+variable.name
-									.then ({type, data}) =>
-										@variableObjects.push data.name
-										variables.push
-											name: variable.name
-											value: variable.value
-											expandable: data.numchild and (parseInt data.numchild) > 0
-										stop()
+						do (variable) =>
+							start()
+							@sendMiCommand 'var-create '+variable.name+' * '+variable.name
+								.then ({type, data}) =>
+									@variableObjects.push data.name
+									variables.push
+										name: variable.name
+										value: variable.value
+										type: data.type
+										expandable: data.numchild and (parseInt data.numchild) > 0
+									stop()
 
-									.catch (error) =>
-										@handleMiError error
-										variables.push
-											name: variable.name
-											value: variable.value
-										stop()
-						else
-							variables.push
-								name: variable.name
-								value: variable.value
+								.catch (error) =>
+									@handleMiError error
+									variables.push
+										name: variable.name
+										value: variable.value
+									stop()
+
 				stop()
 
 	stepIn: ->
