@@ -180,6 +180,7 @@ module.exports = DbgGdb =
 					for breakpoint in @breakpoints
 						@sendMiCommand 'break-insert '+(escapePath breakpoint.path)+':'+breakpoint.line
 
+					@sendMiCommand 'exec-arguments ' + options.args.join(" ") if options.args?
 					@sendMiCommand 'exec-run'
 						.catch (error) =>
 							@handleMiError error, 'Unable to debug this with GDB'
