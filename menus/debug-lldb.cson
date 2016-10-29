@@ -4,12 +4,4 @@
   ]
   '.tree-view .file': [
   # '.tree-view .file .name[data-name$=\\.exe], .tree-view .file .name:not([data-name*="\\."]': [
-    {
-      label: 'Debug',
-      submenu: [
-        { label: 'Debug with GDB', command:  'dbg-gdb:debug-file' }
-        # { label: 'Debug with GDB with parameters', command:  'dbg-gdb:debug-file-with-parameters' }
-      ]
-    }
-    { type: 'separator' }
   ]
