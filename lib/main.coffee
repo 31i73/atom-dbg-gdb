@@ -5,6 +5,9 @@ fs = require 'fs'
 escapePath = (path) ->
 	return (path.replace /\\/g, '/').replace /[\s\t\n]/g, '\\ '
 
+prettyValue = (value) ->
+	return (value.replace /({|,)/g, '$1\n').replace /(})/g, '\n$1' # split gdb's summaries onto multiple lines, at commas and braces. An ugly hack, but it'll do for now
+
 module.exports = DbgGdb =
 	dbg: null
 	breakpoints: []
@@ -249,7 +252,7 @@ module.exports = DbgGdb =
 					children.push
 						name: child.exp
 						type: child.type
-						value: child.value
+						value: prettyValue child.value
 						expandable: child.numchild and parseInt(child.numchild) > 0
 				fulfill children
 
@@ -293,7 +296,7 @@ module.exports = DbgGdb =
 									@variableObjects.push data.name
 									variables.push
 										name: variable.name
-										value: variable.value
+										value: prettyValue variable.value
 										type: data.type
 										expandable: data.numchild and (parseInt data.numchild) > 0
 									stop()
