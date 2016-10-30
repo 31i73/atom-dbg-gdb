@@ -23,7 +23,8 @@
     "atom": ">=1.0.0 <2.0.0"
   },
   "package-deps": [
-    "dbg"
+    "dbg",
+    "output-panel"
   ],
   "dependencies": {
     "atom-package-deps": "^4.0.1"
