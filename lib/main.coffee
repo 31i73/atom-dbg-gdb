@@ -134,7 +134,7 @@ module.exports = DbgGdb =
 
 								name = ''
 								if frame.func
-									name = frame.func
+									name = frame.func+'()'
 								else
 									name = frame.addr
 
