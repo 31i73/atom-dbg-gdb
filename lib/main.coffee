@@ -15,7 +15,8 @@ module.exports = DbgGdb =
 	process: null
 	processAwaiting: false
 	processQueued: []
-	variableObjects: []
+	variableObjects: {}
+	variableRootObjects: {}
 	errorEncountered: null
 	thread: 1
 	frame: 0
@@ -209,14 +210,16 @@ module.exports = DbgGdb =
 
 	cleanupFrame: ->
 		@errorEncountered = null
-		return Promise.all (@sendMiCommand 'var-delete '+name for name in @variableObjects)
+		return Promise.all (@sendMiCommand 'var-delete '+var_name for name, var_name of @variableRootObjects)
 			.then =>
-				@variableObjects = []
+				@variableObjects = {}
+				@variableRootObjects = {}
 
 	stop: ->
 		# @cleanupFrame()
 		@errorEncountered = null
-		@variableObjects = []
+		@variableObjects = {}
+		@variableRootObjects = {}
 
 		@process?.kill();
 		@process = null
@@ -241,7 +244,13 @@ module.exports = DbgGdb =
 			@refreshFrame()
 
 	getVariableChildren: (name) -> return new Promise (fulfill) =>
-		@sendMiCommand 'var-list-children 1 '+name
+		seperator = name.lastIndexOf '.'
+		if seperator >= 0
+			variableName = @variableObjects[name.substr 0, seperator] + '.' + (name.substr seperator+1)
+		else
+			variableName = @variableObjects[name]
+
+		@sendMiCommand 'var-list-children 1 '+variableName
 			.catch (error) =>
 				@handleMiError error
 				fulfill []
@@ -249,6 +258,8 @@ module.exports = DbgGdb =
 			.then ({type, data}) =>
 				children = []
 				if data.children then for child in data.children
+					@variableObjects[name+'.'+child.exp] = child.name
+
 					children.push
 						name: child.exp
 						type: child.type
@@ -291,9 +302,9 @@ module.exports = DbgGdb =
 					for variable in data.variables
 						do (variable) =>
 							start()
-							@sendMiCommand 'var-create '+variable.name+' * '+variable.name
+							@sendMiCommand 'var-create - * '+variable.name
 								.then ({type, data}) =>
-									@variableObjects.push data.name
+									@variableObjects[variable.name] = @variableRootObjects[variable.name] = data.name
 									variables.push
 										name: variable.name
 										value: prettyValue variable.value
