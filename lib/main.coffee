@@ -187,6 +187,7 @@ module.exports = DbgGdb =
 					@sendMiCommand 'exec-arguments ' + options.args.join(" ") if options.args?
 					@sendMiCommand 'exec-run'
 						.catch (error) =>
+							if typeof error != 'string' then return
 							@handleMiError error, 'Unable to debug this with GDB'
 							@dbg.stop()
 
@@ -196,10 +197,12 @@ module.exports = DbgGdb =
 						@sendMiCommand 'gdb-set target-async on'
 							.then => begin()
 							.catch (error) =>
+								if typeof error != 'string' then return
 								@handleMiError error, 'Unable to debug this with GDB'
 								@dbg.stop()
 
 			.catch (error) =>
+				if typeof error != 'string' then return
 				if error.match /not in executable format/
 					atom.notifications.addError 'This file cannot be debugged',
 						description: 'It is not recognised by GDB as a supported executable file'
@@ -229,12 +232,16 @@ module.exports = DbgGdb =
 	continue: ->
 		@cleanupFrame().then =>
 			@sendMiCommand 'exec-continue --all'
-				.catch (error) => @handleMiError error
+				.catch (error) =>
+					if typeof error != 'string' then return
+					@handleMiError error
 
 	pause: ->
 		@cleanupFrame().then =>
 			@sendMiCommand 'exec-interrupt --all'
-				.catch (error) => @handleMiError error
+				.catch (error) =>
+					if typeof error != 'string' then return
+					@handleMiError error
 
 	selectFrame: (index) ->
 		@cleanupFrame().then =>
@@ -252,6 +259,7 @@ module.exports = DbgGdb =
 
 		@sendMiCommand 'var-list-children 1 '+variableName
 			.catch (error) =>
+				if typeof error != 'string' then return
 				@handleMiError error
 				fulfill []
 
@@ -275,7 +283,9 @@ module.exports = DbgGdb =
 
 	refreshFrame: ->
 		# @sendMiCommand 'stack-list-variables --thread '+@thread+' --frame '+@frame+' 2'
-		# 	.catch (error) => @handleMiError error
+		# 	.catch (error) =>
+		# 	if typeof error != 'string' then return
+		# 	@handleMiError error
 		# 	.then ({type, data}) =>
 		# 		variables = []
 		# 		if data.variables
@@ -287,7 +297,9 @@ module.exports = DbgGdb =
 		# 		@ui.setVariables variables
 
 		@sendMiCommand 'stack-list-variables --thread '+@thread+' --frame '+@frame+' 1'
-			.catch (error) => @handleMiError error
+			.catch (error) =>
+				if typeof error != 'string' then return
+				@handleMiError error
 			.then ({type, data}) =>
 				variables = []
 				pending = 0
@@ -313,6 +325,7 @@ module.exports = DbgGdb =
 									stop()
 
 								.catch (error) =>
+									if typeof error != 'string' then return
 									@handleMiError error
 									variables.push
 										name: variable.name
@@ -324,17 +337,23 @@ module.exports = DbgGdb =
 	stepIn: ->
 		@cleanupFrame().then =>
 			@sendMiCommand 'exec-step'
-				.catch (error) => @handleMiError error
+				.catch (error) =>
+					if typeof error != 'string' then return
+					@handleMiError error
 
 	stepOver: ->
 		@cleanupFrame().then =>
 			@sendMiCommand 'exec-next'
-				.catch (error) => @handleMiError error
+				.catch (error) =>
+					if typeof error != 'string' then return
+					@handleMiError error
 
 	stepOut: ->
 		@cleanupFrame().then =>
 			@sendMiCommand 'exec-finish'
-				.catch (error) => @handleMiError error
+				.catch (error) =>
+					if typeof error != 'string' then return
+					@handleMiError error
 
 	sendMiCommand: (command) ->
 		if @processAwaiting
@@ -365,8 +384,10 @@ module.exports = DbgGdb =
 			@processAwaiting = false
 			if @processQueued.length > 0
 				@processQueued.shift()()
-		, =>
+		, (error) =>
 			@processAwaiting = false
+			if typeof error != 'string'
+				console.error error
 			if @processQueued.length > 0
 				@processQueued.shift()()
 
@@ -393,7 +414,9 @@ module.exports = DbgGdb =
 					for entry in data.BreakpointTable.body
 						if entry.fullname==breakpoint.path and parseInt(entry.line)==breakpoint.line
 							@sendMiCommand 'break-delete '+entry.number
-								.catch (error) => @handleMiError error
+								.catch (error) =>
+									if typeof error != 'string' then return
+									@handleMiError error
 
 	provideDbgProvider: ->
 		name: 'dbg-gdb'
