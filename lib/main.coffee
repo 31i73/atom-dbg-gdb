@@ -274,11 +274,6 @@ module.exports = DbgGdb =
 			variableName = @variableObjects[name]
 
 		@sendMiCommand 'var-list-children 1 '+variableName
-			.catch (error) =>
-				if typeof error != 'string' then return
-				@handleMiError error
-				fulfill []
-
 			.then ({type, data}) =>
 				children = []
 				if data.children then for child in data.children
@@ -289,7 +284,18 @@ module.exports = DbgGdb =
 						type: child.type
 						value: prettyValue child.value
 						expandable: child.numchild and parseInt(child.numchild) > 0
+
 				fulfill children
+
+			.catch (error) =>
+				if typeof error != 'string' then return
+
+				fulfill [
+					name: ''
+					type: ''
+					value: error
+					expandable: false
+				]
 
 	selectThread: (index) ->
 		@cleanupFrame().then =>
@@ -299,9 +305,6 @@ module.exports = DbgGdb =
 
 	refreshFrame: ->
 		# @sendMiCommand 'stack-list-variables --thread '+@thread+' --frame '+@frame+' 2'
-		# 	.catch (error) =>
-		# 	if typeof error != 'string' then return
-		# 	@handleMiError error
 		# 	.then ({type, data}) =>
 		# 		variables = []
 		# 		if data.variables
@@ -311,11 +314,11 @@ module.exports = DbgGdb =
 		# 					type: variable.type
 		# 					value: variable.value
 		# 		@ui.setVariables variables
+		# 	.catch (error) =>
+		# 	if typeof error != 'string' then return
+		# 	@handleMiError error
 
 		@sendMiCommand 'stack-list-variables --thread '+@thread+' --frame '+@frame+' 1'
-			.catch (error) =>
-				if typeof error != 'string' then return
-				@handleMiError error
 			.then ({type, data}) =>
 				variables = []
 				pending = 0
@@ -349,6 +352,10 @@ module.exports = DbgGdb =
 									stop()
 
 				stop()
+
+			.catch (error) =>
+				if typeof error != 'string' then return
+				@handleMiError error
 
 	stepIn: ->
 		@cleanupFrame().then =>
