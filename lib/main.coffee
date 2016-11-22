@@ -54,58 +54,11 @@ module.exports = DbgGdb =
 		@outputPanel = outputPanel
 
 	debug: (options, api) ->
-		matchAsyncHeader = /^([\^=*+])(.+?)(?:,(.*))?$/
-		matchStreamHeader = /^([~@&])(.*)?$/
-
 		@ui = api.ui
 		@breakpoints = api.breakpoints
 		@outputPanel?.clear()
 
-		outputRevealed = @outputPanel?.isVisible();
-
-		@miEmitter = new Emitter()
-		# @process = @outputPanel.run true, 'lldb-mi', ['-o','run',options.path,'--'].concat(options.args), {
-		@process = new BufferedProcess
-			command: 'gdb'
-			args: ['-quiet','--interpreter=mi2']
-			options:
-				cwd: options.cwd
-			stdout: (data) =>
-				for line in data.replace(/\r?\n$/,'').split(/\r?\n/)
-					if match = line.match matchAsyncHeader
-						type = match[2]
-						data = if match[3] then parseMi2 match[3] else {}
-
-						if @logToConsole then console.log 'dbg-gdb < ',match[1],type,data
-
-						switch match[1]
-							when '^' then @miEmitter.emit 'result' , {type:type, data:data}
-							when '=' then @miEmitter.emit 'notify' , {type:type, data:data}
-							when '*' then @miEmitter.emit 'exec'	 , {type:type, data:data}
-							when '+' then @miEmitter.emit 'status' , {type:type, data:data}
-					else if match = line.match matchStreamHeader
-						data = parseMi2 match[2]
-						data = if data then data._ else ''
-						switch match[1]
-							when '~' then @miEmitter.emit 'console', data
-					else
-						if @outputPanel and line!='(gdb)' and line!='(gdb) '
-							if !outputRevealed
-								outputRevealed = true
-								@outputPanel.show()
-							@outputPanel.print line
-			stderr: (data) =>
-				if @outputPanel
-					if !outputRevealed
-						outputRevealed = true
-						@outputPanel.show()
-					@outputPanel.print line for line in data.replace(/\r?\n$/,'').split(/\r?\n/)
-
-			exit: (data) =>
-				@miEmitter.emit 'exit'
-
-		@processAwaiting = false
-		@processQueued = []
+		@start options
 
 		@miEmitter.on 'exit', =>
 			@ui.stop()
@@ -230,6 +183,56 @@ module.exports = DbgGdb =
 			.then =>
 				@variableObjects = {}
 				@variableRootObjects = {}
+
+	start: (options)->
+		outputRevealed = @outputPanel?.isVisible();
+
+		matchAsyncHeader = /^([\^=*+])(.+?)(?:,(.*))?$/
+		matchStreamHeader = /^([~@&])(.*)?$/
+
+		@miEmitter = new Emitter()
+		# @process = @outputPanel.run true, 'lldb-mi', ['-o','run',options.path,'--'].concat(options.args), {
+		@process = new BufferedProcess
+			command: 'gdb'
+			args: ['-quiet','--interpreter=mi2']
+			options:
+				cwd: options.cwd
+			stdout: (data) =>
+				for line in data.replace(/\r?\n$/,'').split(/\r?\n/)
+					if match = line.match matchAsyncHeader
+						type = match[2]
+						data = if match[3] then parseMi2 match[3] else {}
+
+						if @logToConsole then console.log 'dbg-gdb < ',match[1],type,data
+
+						switch match[1]
+							when '^' then @miEmitter.emit 'result' , {type:type, data:data}
+							when '=' then @miEmitter.emit 'notify' , {type:type, data:data}
+							when '*' then @miEmitter.emit 'exec'	 , {type:type, data:data}
+							when '+' then @miEmitter.emit 'status' , {type:type, data:data}
+					else if match = line.match matchStreamHeader
+						data = parseMi2 match[2]
+						data = if data then data._ else ''
+						switch match[1]
+							when '~' then @miEmitter.emit 'console', data
+					else
+						if @outputPanel and line!='(gdb)' and line!='(gdb) '
+							if !outputRevealed
+								outputRevealed = true
+								@outputPanel.show()
+							@outputPanel.print line
+			stderr: (data) =>
+				if @outputPanel
+					if !outputRevealed
+						outputRevealed = true
+						@outputPanel.show()
+					@outputPanel.print line for line in data.replace(/\r?\n$/,'').split(/\r?\n/)
+
+			exit: (data) =>
+				@miEmitter.emit 'exit'
+
+		@processAwaiting = false
+		@processQueued = []
 
 	stop: ->
 		# @cleanupFrame()
@@ -436,7 +439,21 @@ module.exports = DbgGdb =
 
 		canHandleOptions: (options) =>
 			return new Promise (fulfill, reject) =>
-				fulfill true
+				@start options
+
+				@sendMiCommand 'file-exec-and-symbols '+escapePath options.path
+					.then =>
+						@stop()
+						fulfill true
+
+					.catch (error) =>
+						@stop()
+						if typeof error == 'string' && error.match /not in executable format/
+							# Error was definitely the file. This is not-debuggable
+							fulfill false
+						else
+							# Error was something else. Say "yes" for now, so that the user can begin the debug and see what it really is
+							fulfill true
 
 		debug: @debug.bind this
 		stop: @stop.bind this
