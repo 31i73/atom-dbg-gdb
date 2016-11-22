@@ -1,3 +1,9 @@
+## 1.4.0
+* Fixed: Errors would be throw for identifiers containing special characters
+* Added: Config option for logging GDB communication to console for bug reporting
+* Added: Now properly supports [`dbg`](https://atom.io/packages/dbg) autodetect (will only be used for supported executable files)
+* Improved: Stack traces now include `()` after function names
+
 ## 1.3.0
 * Added: Passing of executable arguments (thanks to [vanossj](https://github.com/vanossj)!)
 * Added: Type information for variables
