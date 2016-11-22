@@ -9,7 +9,14 @@ prettyValue = (value) ->
 	return (value.replace /({|,)/g, '$1\n').replace /(})/g, '\n$1' # split gdb's summaries onto multiple lines, at commas and braces. An ugly hack, but it'll do for now
 
 module.exports = DbgGdb =
+	config:
+		logToConsole:
+			title: 'Log to developer console'
+			description: 'For debugging GDB problems'
+			type: 'boolean'
+			default: false
 	dbg: null
+	logToConsole: false
 	breakpoints: []
 	ui: null
 	process: null
@@ -36,6 +43,9 @@ module.exports = DbgGdb =
 					path: selectedFile.dataset.path
 					cwd: (require 'path').dirname(selectedFile.dataset.path)
 					args: []
+
+		atom.config.observe 'dbg-gdb.logToConsole', (set) =>
+			@logToConsole = set
 
 	deactivate: ->
 		@disposable.dispose()
@@ -65,6 +75,9 @@ module.exports = DbgGdb =
 					if match = line.match matchAsyncHeader
 						type = match[2]
 						data = if match[3] then parseMi2 match[3] else {}
+
+						if @logToConsole then console.log 'dbg-gdb < ',match[1],type,data
+
 						switch match[1]
 							when '^' then @miEmitter.emit 'result' , {type:type, data:data}
 							when '=' then @miEmitter.emit 'notify' , {type:type, data:data}
@@ -362,12 +375,10 @@ module.exports = DbgGdb =
 					@sendMiCommand command
 						.then resolve, reject
 
-		# console.log '< '+command
 		@processAwaiting = true
 		promise = Promise.race [
 			new Promise (resolve, reject) =>
 				event = @miEmitter.on 'result', ({type, data}) =>
-					# console.log '> ',type,data
 					event.dispose()
 					# "done", "running" (same as done), "connected", "error", "exit"
 					# https://sourceware.org/gdb/onlinedocs/gdb/GDB_002fMI-Result-Records.html#GDB_002fMI-Result-Records
@@ -391,6 +402,7 @@ module.exports = DbgGdb =
 			if @processQueued.length > 0
 				@processQueued.shift()()
 
+		if @logToConsole then console.log 'dbg-gdb > ',command
 		@process.process.stdin.write '-'+command+'\r\n', binary: true
 		return promise
 
