@@ -210,17 +210,24 @@ module.exports = DbgGdb =
 							when '=' then @miEmitter.emit 'notify' , {type:type, data:data}
 							when '*' then @miEmitter.emit 'exec'	 , {type:type, data:data}
 							when '+' then @miEmitter.emit 'status' , {type:type, data:data}
+
 					else if match = line.match matchStreamHeader
 						data = parseMi2 match[2]
 						data = if data then data._ else ''
+
+						if @logToConsole then console.log 'dbg-gdb < ',match[1],data
+
 						switch match[1]
 							when '~' then @miEmitter.emit 'console', data
 					else
-						if @outputPanel and line!='(gdb)' and line!='(gdb) '
-							if !outputRevealed
-								outputRevealed = true
-								@outputPanel.show()
-							@outputPanel.print line
+						if line!='(gdb)' and line!='(gdb) '
+							if @logToConsole then console.log 'dbg-gdb < ',line
+							if @outputPanel
+								if !outputRevealed
+									outputRevealed = true
+									@outputPanel.show()
+								@outputPanel.print line
+								
 			stderr: (data) =>
 				if @outputPanel
 					if !outputRevealed
