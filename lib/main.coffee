@@ -150,6 +150,7 @@ module.exports = DbgGdb =
 					for breakpoint in @breakpoints
 						@sendCommand '-break-insert '+(escapePath breakpoint.path)+':'+breakpoint.line
 
+					@sendCommand 'set environment ' + env_var for env_var in options.env_vars if options.env_vars?
 					@sendCommand '-exec-arguments ' + options.args.join(" ") if options.args?
 					@sendCommand '-exec-run'
 						.catch (error) =>
