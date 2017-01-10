@@ -90,7 +90,7 @@ module.exports = DbgGdb =
 
 					@ui.paused()
 
-					@sendMiCommand 'stack-list-frames --thread '+@thread
+					@sendCommand '-stack-list-frames --thread '+@thread
 						.then ({type, data}) =>
 							stack = []
 							lastValid = false
@@ -144,23 +144,23 @@ module.exports = DbgGdb =
 							@frame = 0
 							@refreshFrame()
 
-		@sendMiCommand 'file-exec-and-symbols '+escapePath options.path
+		@sendCommand '-file-exec-and-symbols '+escapePath options.path
 			.then =>
 				begin = () =>
 					for breakpoint in @breakpoints
-						@sendMiCommand 'break-insert '+(escapePath breakpoint.path)+':'+breakpoint.line
+						@sendCommand '-break-insert '+(escapePath breakpoint.path)+':'+breakpoint.line
 
-					@sendMiCommand 'exec-arguments ' + options.args.join(" ") if options.args?
-					@sendMiCommand 'exec-run'
+					@sendCommand '-exec-arguments ' + options.args.join(" ") if options.args?
+					@sendCommand '-exec-run'
 						.catch (error) =>
 							if typeof error != 'string' then return
 							@handleMiError error, 'Unable to debug this with GDB'
 							@dbg.stop()
 
-				@sendMiCommand 'gdb-set mi-async on'
+				@sendCommand '-gdb-set mi-async on'
 					.then => begin()
 					.catch =>
-						@sendMiCommand 'gdb-set target-async on'
+						@sendCommand '-gdb-set target-async on'
 							.then => begin()
 							.catch (error) =>
 								if typeof error != 'string' then return
@@ -179,7 +179,7 @@ module.exports = DbgGdb =
 
 	cleanupFrame: ->
 		@errorEncountered = null
-		return Promise.all (@sendMiCommand 'var-delete '+var_name for name, var_name of @variableRootObjects)
+		return Promise.all (@sendCommand '-var-delete '+var_name for name, var_name of @variableRootObjects)
 			.then =>
 				@variableObjects = {}
 				@variableRootObjects = {}
@@ -247,14 +247,14 @@ module.exports = DbgGdb =
 
 	continue: ->
 		@cleanupFrame().then =>
-			@sendMiCommand 'exec-continue --all'
+			@sendCommand '-exec-continue --all'
 				.catch (error) =>
 					if typeof error != 'string' then return
 					@handleMiError error
 
 	pause: ->
 		@cleanupFrame().then =>
-			@sendMiCommand 'exec-interrupt --all'
+			@sendCommand '-exec-interrupt --all'
 				.catch (error) =>
 					if typeof error != 'string' then return
 					@handleMiError error
@@ -273,7 +273,7 @@ module.exports = DbgGdb =
 		else
 			variableName = @variableObjects[name]
 
-		@sendMiCommand 'var-list-children 1 '+variableName
+		@sendCommand '-var-list-children 1 '+variableName
 			.then ({type, data}) =>
 				children = []
 				if data.children then for child in data.children
@@ -304,7 +304,7 @@ module.exports = DbgGdb =
 			@refreshFrame()
 
 	refreshFrame: ->
-		# @sendMiCommand 'stack-list-variables --thread '+@thread+' --frame '+@frame+' 2'
+		# @sendCommand '-stack-list-variables --thread '+@thread+' --frame '+@frame+' 2'
 		# 	.then ({type, data}) =>
 		# 		variables = []
 		# 		if data.variables
@@ -318,7 +318,7 @@ module.exports = DbgGdb =
 		# 	if typeof error != 'string' then return
 		# 	@handleMiError error
 
-		@sendMiCommand 'stack-list-variables --thread '+@thread+' --frame '+@frame+' 1'
+		@sendCommand '-stack-list-variables --thread '+@thread+' --frame '+@frame+' 1'
 			.then ({type, data}) =>
 				variables = []
 				pending = 0
@@ -333,7 +333,7 @@ module.exports = DbgGdb =
 					for variable in data.variables
 						do (variable) =>
 							start()
-							@sendMiCommand 'var-create - * '+variable.name
+							@sendCommand '-var-create - * '+variable.name
 								.then ({type, data}) =>
 									@variableObjects[variable.name] = @variableRootObjects[variable.name] = data.name
 									variables.push
@@ -359,30 +359,30 @@ module.exports = DbgGdb =
 
 	stepIn: ->
 		@cleanupFrame().then =>
-			@sendMiCommand 'exec-step'
+			@sendCommand '-exec-step'
 				.catch (error) =>
 					if typeof error != 'string' then return
 					@handleMiError error
 
 	stepOver: ->
 		@cleanupFrame().then =>
-			@sendMiCommand 'exec-next'
+			@sendCommand '-exec-next'
 				.catch (error) =>
 					if typeof error != 'string' then return
 					@handleMiError error
 
 	stepOut: ->
 		@cleanupFrame().then =>
-			@sendMiCommand 'exec-finish'
+			@sendCommand '-exec-finish'
 				.catch (error) =>
 					if typeof error != 'string' then return
 					@handleMiError error
 
-	sendMiCommand: (command) ->
+	sendCommand: (command) ->
 		if @processAwaiting
 			return new Promise (resolve, reject) =>
 				@processQueued.push =>
-					@sendMiCommand command
+					@sendCommand command
 						.then resolve, reject
 
 		@processAwaiting = true
@@ -413,7 +413,7 @@ module.exports = DbgGdb =
 				@processQueued.shift()()
 
 		if @logToConsole then console.log 'dbg-gdb > ',command
-		@process.process.stdin.write '-'+command+'\r\n', binary: true
+		@process.process.stdin.write command+'\r\n', binary: true
 		return promise
 
 	handleMiError: (error, title) ->
@@ -423,19 +423,19 @@ module.exports = DbgGdb =
 
 	addBreakpoint: (breakpoint) ->
 		@breakpoints.push breakpoint
-		@sendMiCommand 'break-insert '+(escapePath breakpoint.path)+':'+breakpoint.line
+		@sendCommand '-break-insert '+(escapePath breakpoint.path)+':'+breakpoint.line
 
 	removeBreakpoint: (breakpoint) ->
 		for i,compare in @breakpoints
 			if compare==breakpoint
 				@breakpoints.splice i,1
 
-		@sendMiCommand 'break-list'
+		@sendCommand '-break-list'
 			.then ({type, data}) =>
 				if data.BreakpointTable
 					for entry in data.BreakpointTable.body
 						if entry.fullname==breakpoint.path and parseInt(entry.line)==breakpoint.line
-							@sendMiCommand 'break-delete '+entry.number
+							@sendCommand '-break-delete '+entry.number
 								.catch (error) =>
 									if typeof error != 'string' then return
 									@handleMiError error
@@ -448,7 +448,7 @@ module.exports = DbgGdb =
 			return new Promise (fulfill, reject) =>
 				@start options
 
-				@sendMiCommand 'file-exec-and-symbols '+escapePath options.path
+				@sendCommand '-file-exec-and-symbols '+escapePath options.path
 					.then =>
 						@stop()
 						fulfill true
