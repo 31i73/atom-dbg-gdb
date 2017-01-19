@@ -33,22 +33,8 @@ module.exports = DbgGdb =
 	activate: (state) ->
 		require('atom-package-deps').install('dbg-gdb');
 
-		@disposable = new CompositeDisposable
-		@disposable.add atom.commands.add '.tree-view .file', 'dbg-gdb:debug-file': =>
-			if !@dbg then return
-			selectedFile = document.querySelector '.tree-view .file.selected [data-path]'
-			if selectedFile!=null
-				@dbg.debug
-					debugger: 'dbg-gdb'
-					path: selectedFile.dataset.path
-					cwd: (require 'path').dirname(selectedFile.dataset.path)
-					args: []
-
 		atom.config.observe 'dbg-gdb.logToConsole', (set) =>
 			@logToConsole = set
-
-	deactivate: ->
-		@disposable.dispose()
 
 	consumeOutputPanel: (outputPanel) ->
 		@outputPanel = outputPanel
