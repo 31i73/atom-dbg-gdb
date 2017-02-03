@@ -1,3 +1,8 @@
+## 1.5.0
+* Fixed: Console logging did not log all gdb interactions
+* Added: Support for environment variables via `env_vars` parameter ([vanossj](https://github.com/vanossj))
+* Added: Supports [`dbg`](https://atom.io/packages/dbg) 1.4.0+ (relative paths for config files)
+
 ## 1.4.0
 * Fixed: Errors would be throw for identifiers containing special characters
 * Added: Config option for logging GDB communication to console for bug reporting
