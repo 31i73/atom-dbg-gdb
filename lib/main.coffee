@@ -1,5 +1,6 @@
 parseMi2 = require './parseMi2'
 fs = require 'fs'
+path = require 'path'
 {BufferedProcess, CompositeDisposable, Emitter} = require 'atom'
 
 escapePath = (path) ->
@@ -33,22 +34,8 @@ module.exports = DbgGdb =
 	activate: (state) ->
 		require('atom-package-deps').install('dbg-gdb');
 
-		@disposable = new CompositeDisposable
-		@disposable.add atom.commands.add '.tree-view .file', 'dbg-gdb:debug-file': =>
-			if !@dbg then return
-			selectedFile = document.querySelector '.tree-view .file.selected [data-path]'
-			if selectedFile!=null
-				@dbg.debug
-					debugger: 'dbg-gdb'
-					path: selectedFile.dataset.path
-					cwd: (require 'path').dirname(selectedFile.dataset.path)
-					args: []
-
 		atom.config.observe 'dbg-gdb.logToConsole', (set) =>
 			@logToConsole = set
-
-	deactivate: ->
-		@disposable.dispose()
 
 	consumeOutputPanel: (outputPanel) ->
 		@outputPanel = outputPanel
@@ -105,15 +92,15 @@ module.exports = DbgGdb =
 								else
 									name = frame.addr
 
-								path = ''
+								framePath = ''
 								if frame.file
-									path = frame.file.replace /^\.\//, ''
+									framePath = frame.file.replace /^\.\//, ''
 								else
-									path = frame.from
+									framePath = frame.from
 									if frame.addr
-										path += ':'+frame.addr
+										framePath += ':'+frame.addr
 
-								description = name + ' - ' + path
+								description = name + ' - ' + framePath
 
 								atom.project.getPaths()[0]
 
@@ -132,7 +119,7 @@ module.exports = DbgGdb =
 									file: frame.fullname
 									line: if frame.line then parseInt(frame.line) else undefined
 									name: name
-									path: path
+									path: framePath
 									error: if i==0 then @errorEncountered else undefined
 
 							@ui.setStack stack
@@ -144,7 +131,7 @@ module.exports = DbgGdb =
 							@frame = 0
 							@refreshFrame()
 
-		@sendCommand '-file-exec-and-symbols '+escapePath options.path
+		@sendCommand '-file-exec-and-symbols '+escapePath (path.resolve options.basedir||'', options.path)
 			.then =>
 				begin = () =>
 					for breakpoint in @breakpoints
@@ -192,12 +179,11 @@ module.exports = DbgGdb =
 		matchStreamHeader = /^([~@&])(.*)?$/
 
 		@miEmitter = new Emitter()
-		# @process = @outputPanel.run true, 'lldb-mi', ['-o','run',options.path,'--'].concat(options.args), {
 		@process = new BufferedProcess
 			command: 'gdb'
 			args: ['-quiet','--interpreter=mi2']
 			options:
-				cwd: options.cwd
+				cwd: (path.resolve options.basedir||'', options.cwd)
 			stdout: (data) =>
 				for line in data.replace(/\r?\n$/,'').split(/\r?\n/)
 					if match = line.match matchAsyncHeader
@@ -211,17 +197,24 @@ module.exports = DbgGdb =
 							when '=' then @miEmitter.emit 'notify' , {type:type, data:data}
 							when '*' then @miEmitter.emit 'exec'	 , {type:type, data:data}
 							when '+' then @miEmitter.emit 'status' , {type:type, data:data}
+
 					else if match = line.match matchStreamHeader
 						data = parseMi2 match[2]
 						data = if data then data._ else ''
+
+						if @logToConsole then console.log 'dbg-gdb < ',match[1],data
+
 						switch match[1]
 							when '~' then @miEmitter.emit 'console', data
 					else
-						if @outputPanel and line!='(gdb)' and line!='(gdb) '
-							if !outputRevealed
-								outputRevealed = true
-								@outputPanel.show()
-							@outputPanel.print line
+						if line!='(gdb)' and line!='(gdb) '
+							if @logToConsole then console.log 'dbg-gdb < ',line
+							if @outputPanel
+								if !outputRevealed
+									outputRevealed = true
+									@outputPanel.show()
+								@outputPanel.print line
+
 			stderr: (data) =>
 				if @outputPanel
 					if !outputRevealed
@@ -449,7 +442,7 @@ module.exports = DbgGdb =
 			return new Promise (fulfill, reject) =>
 				@start options
 
-				@sendCommand '-file-exec-and-symbols '+escapePath options.path
+				@sendCommand '-file-exec-and-symbols '+escapePath (path.resolve options.basedir||'', options.path)
 					.then =>
 						@stop()
 						fulfill true

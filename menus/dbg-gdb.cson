@@ -2,6 +2,3 @@
 'context-menu':
   'atom-text-editor': [
   ]
-  '.tree-view .file': [
-  # '.tree-view .file .name[data-name$=\\.exe], .tree-view .file .name:not([data-name*="\\."]': [
-  ]
