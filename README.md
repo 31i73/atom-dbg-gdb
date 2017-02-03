@@ -6,8 +6,9 @@ An interactive GDB debugger for Atom
 
 ## How to use
 
-1. Toggle breakpoints by clicking beside line numbers or pressing `F9`
-2. Right click on an executable in the treeview and select `Debug`, or push `F5`
+1. Right click on an executable in the treeview, select `Debug this file`, and click `Save`
+2. Toggle breakpoints by clicking beside line numbers or pressing `F9`
+3. Press `F5`, and select the executable
 4. ...
 5. Profit!
 
