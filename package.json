@@ -27,8 +27,7 @@
     "output-panel"
   ],
   "dependencies": {
-    "atom-package-deps": "^4.0.1",
-    "node-pty": "0.6.2"
+    "atom-package-deps": "^4.0.1"
   },
   "providedServices": {
     "dbgProvider": {

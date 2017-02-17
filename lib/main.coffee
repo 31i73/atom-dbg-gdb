@@ -1,7 +1,6 @@
 parseMi2 = require './parseMi2'
 fs = require 'fs'
 path = require 'path'
-pty = require 'node-pty'
 {BufferedProcess, CompositeDisposable, Emitter} = require 'atom'
 
 escapePath = (path) ->
@@ -31,7 +30,6 @@ module.exports = DbgGdb =
 	frame: 0
 	outputPanel: null
 	miEmitter: null
-	term: null
 
 	activate: (state) ->
 		require('atom-package-deps').install('dbg-gdb');
@@ -180,15 +178,8 @@ module.exports = DbgGdb =
 		matchAsyncHeader = /^([\^=*+])(.+?)(?:,(.*))?$/
 		matchStreamHeader = /^([~@&])(.*)?$/
 
-		@term = pty.open() if !@term?
-		console.log("using pty: " + @term.pty)
-		@term.slave.on 'data', (data) ->
-			console.log('pty slave data: ' + data + '\n')
-		@term.master.on 'data', (data) ->
-			console.log('pty master data: ' + data + '\n')
-
 		gdbArgs = ['-quiet', '--interpreter=mi2']
-		gdbArgs.push('-tty=' + @term.pty) if @term.pty?
+		gdbArgs.push('-tty=' + @outputPanel.ptyTerm.pty) if @outputPanel?.ptyTerm
 
 		@miEmitter = new Emitter()
 		@process = new BufferedProcess
@@ -250,10 +241,6 @@ module.exports = DbgGdb =
 		@process = null
 		@processAwaiting = false
 		@processQueued = []
-		
-		@term?.slave.destroy()
-		@term?.master.destroy()
-		@term = null
 
 	continue: ->
 		@cleanupFrame().then =>
