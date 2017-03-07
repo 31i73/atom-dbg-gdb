@@ -21,5 +21,8 @@ Creates a `dbgProvider` for GDB, see [basic dbgProvider  service description](ht
 > `args` - *Optional*. An array of arguments to pass to the file being debugged  
 > `cwd` - *Optional*. The working directory to use when debugging  
 > `env_vars` - *Optional*. An array of environmental variables, ex: ['VAR1=9', 'VAR2=thing', ...]  
+> `gdb_executable` - *Optional*. The full command used to execute gdb (defaults to 'gdb')  
+> `gdb_arguments` - *Optional*. An array of extra arguments to pass to gdb (note that the arguments ['-quiet', '--interpreter=mi2'] are always included first)  
+> `gdb_commands` - *Optional*. An array of commands to pass to gdb, once active (these are executed last of all, but right before '-exec-run')  
 
 For a list of features and all available keyboard shortcuts, please see [dbg](https://atom.io/packages/dbg)
