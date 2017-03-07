@@ -183,7 +183,7 @@ module.exports = DbgGdb =
 			command: 'gdb'
 			args: ['-quiet','--interpreter=mi2']
 			options:
-				cwd: (path.resolve options.basedir||'', options.cwd)
+				cwd: (path.resolve options.basedir||'', options.cwd||'')
 			stdout: (data) =>
 				for line in data.replace(/\r?\n$/,'').split(/\r?\n/)
 					if match = line.match matchAsyncHeader
