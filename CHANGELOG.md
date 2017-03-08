@@ -1,3 +1,7 @@
+## 1.6.0
+* Added: `gdb_executable`, `gdb_arguments` and `gdb_commands` parameters
+* Fixed: Debugging would fail if the `cwd` wasn't included (this should be optional)
+
 ## 1.5.0
 * Fixed: Console logging did not log all gdb interactions
 * Added: Support for environment variables via `env_vars` parameter ([vanossj](https://github.com/vanossj))

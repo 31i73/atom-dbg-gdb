@@ -138,6 +138,9 @@ module.exports = DbgGdb =
 						@sendCommand '-break-insert '+(escapePath breakpoint.path)+':'+breakpoint.line
 
 					@sendCommand 'set environment ' + env_var for env_var in options.env_vars if options.env_vars?
+
+					@sendCommand command for command in [].concat options.gdb_commands||[]
+					
 					@sendCommand '-exec-arguments ' + options.args.join(" ") if options.args?
 					@sendCommand '-exec-run'
 						.catch (error) =>
@@ -178,15 +181,12 @@ module.exports = DbgGdb =
 		matchAsyncHeader = /^([\^=*+])(.+?)(?:,(.*))?$/
 		matchStreamHeader = /^([~@&])(.*)?$/
 
-		gdbArgs = ['-quiet', '--interpreter=mi2']
-		gdbArgs.push('-tty=' + @outputPanel.ptyTerm.pty) if @outputPanel?.ptyTerm
-
 		@miEmitter = new Emitter()
 		@process = new BufferedProcess
-			command: 'gdb'
-			args: gdbArgs
+			command: options.gdb_executable||'gdb'
+			args: ['-quiet','--interpreter=mi2', if @outputPanel? then '-tty=' + @outputPanel.open() else '']
 			options:
-				cwd: (path.resolve options.basedir||'', options.cwd)
+				cwd: (path.resolve options.basedir||'', options.cwd||'')
 			stdout: (data) =>
 				for line in data.replace(/\r?\n$/,'').split(/\r?\n/)
 					if match = line.match matchAsyncHeader
@@ -198,7 +198,7 @@ module.exports = DbgGdb =
 						switch match[1]
 							when '^' then @miEmitter.emit 'result' , {type:type, data:data}
 							when '=' then @miEmitter.emit 'notify' , {type:type, data:data}
-							when '*' then @miEmitter.emit 'exec'	 , {type:type, data:data}
+							when '*' then @miEmitter.emit 'exec'   , {type:type, data:data}
 							when '+' then @miEmitter.emit 'status' , {type:type, data:data}
 
 					else if match = line.match matchStreamHeader
