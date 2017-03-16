@@ -29,6 +29,7 @@ module.exports = DbgGdb =
 	thread: 1
 	frame: 0
 	outputPanel: null
+	terminalService: null
 	miEmitter: null
 
 	activate: (state) ->
@@ -39,6 +40,9 @@ module.exports = DbgGdb =
 
 	consumeOutputPanel: (outputPanel) ->
 		@outputPanel = outputPanel
+
+	consumePlatformioIDETerminal: (terminalService) ->
+		@terminalService = terminalService
 
 	debug: (options, api) ->
 		@ui = api.ui
@@ -140,7 +144,7 @@ module.exports = DbgGdb =
 					@sendCommand 'set environment ' + env_var for env_var in options.env_vars if options.env_vars?
 
 					@sendCommand command for command in [].concat options.gdb_commands||[]
-					
+
 					@sendCommand '-exec-arguments ' + options.args.join(" ") if options.args?
 					@sendCommand '-exec-run'
 						.catch (error) =>

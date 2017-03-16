@@ -24,7 +24,8 @@
   },
   "package-deps": [
     "dbg",
-    "output-panel"
+    "output-panel",
+    "platformio-ide-terminal"
   ],
   "dependencies": {
     "atom-package-deps": "^4.0.1"
@@ -46,6 +47,11 @@
     "output-panel": {
       "versions": {
         "^0.1.0": "consumeOutputPanel"
+      }
+    },
+    "platformioIDETerminal": {
+      "versions": {
+        "^1.0.0": "consumePlatformioIDETerminal"
       }
     }
   }
