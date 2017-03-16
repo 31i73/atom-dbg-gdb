@@ -29,6 +29,7 @@ module.exports = DbgGdb =
 	thread: 1
 	frame: 0
 	outputPanel: null
+	terminalService: null
 	miEmitter: null
 
 	activate: (state) ->
@@ -39,6 +40,9 @@ module.exports = DbgGdb =
 
 	consumeOutputPanel: (outputPanel) ->
 		@outputPanel = outputPanel
+
+	consumePlatformioIDETerminal: (terminalService) ->
+		@terminalService = terminalService
 
 	debug: (options, api) ->
 		@ui = api.ui
@@ -140,7 +144,7 @@ module.exports = DbgGdb =
 					@sendCommand 'set environment ' + env_var for env_var in options.env_vars if options.env_vars?
 
 					@sendCommand command for command in [].concat options.gdb_commands||[]
-					
+
 					@sendCommand '-exec-arguments ' + options.args.join(" ") if options.args?
 					@sendCommand '-exec-run'
 						.catch (error) =>
@@ -181,10 +185,13 @@ module.exports = DbgGdb =
 		matchAsyncHeader = /^([\^=*+])(.+?)(?:,(.*))?$/
 		matchStreamHeader = /^([~@&])(.*)?$/
 
+		gdbArgs = ['-quiet','--interpreter=mi2'].concat options.gdb_arguments||[]
+		gdbArgs.push('-tty=' + @outputPanel.ptyTerm.pty) if @outputPanel?.ptyTerm
+
 		@miEmitter = new Emitter()
 		@process = new BufferedProcess
 			command: options.gdb_executable||'gdb'
-			args: ['-quiet','--interpreter=mi2', if @outputPanel? then '-tty=' + @outputPanel.open() else '']
+			args: gdbArgs
 			options:
 				cwd: (path.resolve options.basedir||'', options.cwd||'')
 			stdout: (data) =>
