@@ -28,7 +28,8 @@
     "platformio-ide-terminal"
   ],
   "dependencies": {
-    "atom-package-deps": "^4.0.1"
+    "atom-package-deps": "^4.0.1",
+    "asyncawait": "^1.0.0"
   },
   "providedServices": {
     "dbgProvider": {

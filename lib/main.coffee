@@ -1,6 +1,7 @@
 parseMi2 = require './parseMi2'
 fs = require 'fs'
 path = require 'path'
+await = require 'asyncawait/await'
 {BufferedProcess, CompositeDisposable, Emitter} = require 'atom'
 
 escapePath = (path) ->
@@ -186,7 +187,17 @@ module.exports = DbgGdb =
 		matchStreamHeader = /^([~@&])(.*)?$/
 
 		gdbArgs = ['-quiet','--interpreter=mi2'].concat options.gdb_arguments||[]
-		gdbArgs.push('-tty=' + @outputPanel.ptyTerm.pty) if @outputPanel?.ptyTerm
+
+		term = @terminalService.open()
+		# pp = term.pty()
+		# pp.then (pty) ->
+		# 	console.log("Mostly successs!!!! found pty: " + pty)
+		# 	gdbArgs.push('-tty=' + pty) if pty?
+
+		# ptyPath = await term.pty()
+		# if ptyPath?
+		# 	console.log("Mostly successs!!!! found pty: " + ptyPath)
+		# 	gdbArgs.push('-tty=' + pty) if ptyPath?
 
 		@miEmitter = new Emitter()
 		@process = new BufferedProcess
