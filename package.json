@@ -52,7 +52,7 @@
     },
     "platformioIDETerminal": {
       "versions": {
-        "^1.0.0": "consumePlatformioIDETerminal"
+        "^1.1.0": "consumePlatformioIDETerminal"
       }
     }
   }

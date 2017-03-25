@@ -31,6 +31,7 @@ module.exports = DbgGdb =
 	frame: 0
 	outputPanel: null
 	terminalService: null
+	appTerm: null
 	miEmitter: null
 
 	activate: (state) ->
@@ -188,16 +189,22 @@ module.exports = DbgGdb =
 		matchAsyncHeader = /^([\^=*+])(.+?)(?:,(.*))?$/
 		matchStreamHeader = /^([~@&])(.*)?$/
 
- 		@miEmitter = new Emitter()
+		@miEmitter = new Emitter()
 
 		if options_test
 			promise = Promise.resolve(null)
 		else
-			term = @terminalService.open()
-			promise = term.pty()
+			if not @appTerm? or @appTerm not in @terminalService.getTerminalViews()
+				@appTerm = @terminalService.open()
+			else if @appTerm.getTerminal()?
+				@appTerm.getTerminal().reset() # clear terminal
+			promise = @appTerm.pty()
+
 		promise.then (pty) =>
 			gdbArgs = ['-quiet','--interpreter=mi2'].concat options.gdb_arguments||[]
 			gdbArgs.push('-tty=' + pty) if pty?
+
+			if @process? then @stop()
 
 			@process = new BufferedProcess
 				command: options.gdb_executable||'gdb'
