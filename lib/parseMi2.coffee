@@ -10,6 +10,7 @@ module.exports = (source) ->
 
 	readWord = ->
 		if position >= source.length then return false
+		if /[\[\]{}=,]/.test source[position] then return false
 		seperator = source.indexOf '=', position
 		if seperator>=0
 			if seperator==position then return false
@@ -69,7 +70,7 @@ module.exports = (source) ->
 		value = readValue()
 		if value==false
 			value = readPair()
-			if readPair!=false then value = value.value
+			if value!=false then value = value.value
 		return value
 
 	readValue = ->
