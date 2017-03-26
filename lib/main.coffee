@@ -72,6 +72,9 @@ module.exports = DbgGdb =
 						@ui.running()
 
 					when 'stopped'
+						if data['thread-id']
+							@thread = parseInt data['thread-id'], 10
+							# @ui.setThread @thread
 
 						switch data.reason
 							when 'exited-normally'

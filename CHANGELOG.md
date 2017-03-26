@@ -1,6 +1,8 @@
 ## 1.6.0
 * Added: `gdb_executable`, `gdb_arguments` and `gdb_commands` parameters
 * Fixed: Debugging would fail if the `cwd` wasn't included (this should be optional)
+* #### 1.6.1
+	* Fixed: Would break if the debugger engaged on threads other than thread 1
 
 ## 1.5.0
 * Fixed: Console logging did not log all gdb interactions
