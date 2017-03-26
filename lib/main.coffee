@@ -64,6 +64,9 @@ module.exports = DbgGdb =
 					@ui.running()
 
 				when 'stopped'
+					if data['thread-id']
+						@thread = parseInt data['thread-id'], 10
+						# @ui.setThread @thread
 
 					switch data.reason
 						when 'exited-normally'
@@ -140,7 +143,7 @@ module.exports = DbgGdb =
 					@sendCommand 'set environment ' + env_var for env_var in options.env_vars if options.env_vars?
 
 					@sendCommand command for command in [].concat options.gdb_commands||[]
-					
+
 					@sendCommand '-exec-arguments ' + options.args.join(" ") if options.args?
 					@sendCommand '-exec-run'
 						.catch (error) =>
