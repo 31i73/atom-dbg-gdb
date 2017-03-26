@@ -194,7 +194,7 @@ module.exports = DbgGdb =
 
 		@miEmitter = new Emitter()
 
-		if options_test
+		if options_test or not @terminalService
 			promise = Promise.resolve(null)
 		else
 			if not @appTerm? or @appTerm not in @terminalService.getTerminalViews()
