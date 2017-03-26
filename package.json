@@ -25,7 +25,7 @@
   "package-deps": [
     "dbg",
     "output-panel",
-    "platformio-ide-terminal"
+    "platformio-ide-terminal#vanossj/platformio-atom-ide-terminal/tree/open-terminal"
   ],
   "dependencies": {
     "atom-package-deps": "^4.0.1",
