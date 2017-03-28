@@ -152,8 +152,11 @@ module.exports = DbgGdb =
 						@sendCommand '-exec-run'
 							.catch (error) =>
 								if typeof error != 'string' then return
-								@handleMiError error, 'Unable to debug this with GDB'
-								@dbg.stop()
+								if error.match /target does not support "run"/
+									@sendCommand '-exec-continue'
+								else
+									@handleMiError error, 'Unable to debug this with GDB'
+									@dbg.stop()
 
 				@sendCommand '-gdb-set mi-async on'
 					.then => begin()
