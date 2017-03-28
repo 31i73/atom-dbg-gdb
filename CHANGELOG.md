@@ -5,6 +5,7 @@
 	* Fixed: Would break if the debugger engaged on threads other than thread 1
 * #### 1.6.2
 	* Fixed: When executing custom startup commands, would not process the result before starting the next (delayed responses could execute when now in the wrong state)
+	* Fixed: Did not work on targets that do not support "run", such as remote targets
 
 ## 1.5.0
 * Fixed: Console logging did not log all gdb interactions
