@@ -253,15 +253,14 @@ module.exports = DbgGdb =
 				@miEmitter.emit 'exit'
 
 		@process.emitter.on 'will-throw-error', (event) =>
-			event.handle();
+			event.handle()
 
 			error = event.error
-			message = error.message
 
 			if error.code == 'ENOENT' && (error.syscall.indexOf 'spawn') == 0
-				message = "Could not find `#{command}`  \nPlease ensure it is correctly installed and available in your system PATH"
-
-			handleError message
+				handleError "Could not find `#{command}`  \nPlease ensure it is correctly installed and available in your system PATH"
+			else
+				handleError error.message
 
 		@processAwaiting = false
 		@processQueued = []
