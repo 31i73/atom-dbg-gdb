@@ -191,12 +191,26 @@ module.exports = DbgGdb =
 		matchAsyncHeader = /^([\^=*+])(.+?)(?:,(.*))?$/
 		matchStreamHeader = /^([~@&])(.*)?$/
 
+		command = options.gdb_executable||'gdb'
+		cwd = path.resolve options.basedir||'', options.cwd||''
+
+		handleError = (message) =>
+			atom.notifications.addError 'Error running GDB',
+				description: message
+				dismissable: true
+
+			@ui.stop()
+
+		if !fs.exists cwd
+			handleError "Working directory is invalid:  \n`#{cwd}`"
+			return
+
 		@miEmitter = new Emitter()
 		@process = new BufferedProcess
-			command: options.gdb_executable||'gdb'
+			command: command
 			args: ['-quiet','--interpreter=mi2'].concat options.gdb_arguments||[]
 			options:
-				cwd: (path.resolve options.basedir||'', options.cwd||'')
+				cwd: cwd
 			stdout: (data) =>
 				for line in data.replace(/\r?\n$/,'').split(/\r?\n/)
 					if match = line.match matchAsyncHeader
@@ -237,6 +251,17 @@ module.exports = DbgGdb =
 
 			exit: (data) =>
 				@miEmitter.emit 'exit'
+
+		@process.emitter.on 'will-throw-error', (event) =>
+			event.handle();
+
+			error = event.error
+			message = error.message
+
+			if error.code == 'ENOENT' && (error.syscall.indexOf 'spawn') == 0
+				message = "Could not find `#{command}`  \nPlease ensure it is correctly installed and available in your system PATH"
+
+			handleError message
 
 		@processAwaiting = false
 		@processQueued = []
