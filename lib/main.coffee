@@ -201,7 +201,7 @@ module.exports = DbgGdb =
 
 			@ui.stop()
 
-		if !fs.exists cwd
+		if !fs.existsSync cwd
 			handleError "Working directory is invalid:  \n`#{cwd}`"
 			return
 
