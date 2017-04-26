@@ -150,14 +150,21 @@ module.exports = DbgGdb =
 
 						@sendCommand 'set environment ' + env_var for env_var in options.env_vars if options.env_vars?
 
-						@sendCommand command for command in [].concat options.gdb_commands||[]
+						task = Promise.resolve()
+						for command in [].concat options.gdb_commands||[]
+							do (command) =>
+								task = task.then => @sendCommand command
 
-						@sendCommand '-exec-arguments ' + options.args.join(" ") if options.args?
-						@sendCommand '-exec-run'
-							.catch (error) =>
-								if typeof error != 'string' then return
-								@handleMiError error, 'Unable to debug this with GDB'
-								@dbg.stop()
+						task.then =>
+							@sendCommand '-exec-arguments ' + options.args.join(" ") if options.args?
+							@sendCommand '-exec-run'
+								.catch (error) =>
+									if typeof error != 'string' then return
+									if error.match /target does not support "run"/
+										@sendCommand '-exec-continue'
+									else
+										@handleMiError error, 'Unable to debug this with GDB'
+										@dbg.stop()
 
 					@sendCommand '-gdb-set mi-async on'
 						.then => begin()
@@ -192,6 +199,20 @@ module.exports = DbgGdb =
 		matchAsyncHeader = /^([\^=*+])(.+?)(?:,(.*))?$/
 		matchStreamHeader = /^([~@&])(.*)?$/
 
+		command = options.gdb_executable||'gdb'
+		cwd = path.resolve options.basedir||'', options.cwd||''
+
+		handleError = (message) =>
+			atom.notifications.addError 'Error running GDB',
+				description: message
+				dismissable: true
+
+			@ui.stop()
+
+		if !fs.existsSync cwd
+			handleError "Working directory is invalid:  \n`#{cwd}`"
+			return
+
 		@miEmitter = new Emitter()
 
 		if options_test or not @terminalService
@@ -210,10 +231,10 @@ module.exports = DbgGdb =
 			if @process? then @stop()
 
 			@process = new BufferedProcess
-				command: options.gdb_executable||'gdb'
+				command: command
 				args: gdbArgs
 				options:
-					cwd: (path.resolve options.basedir||'', options.cwd||'')
+					cwd: cwd
 				stdout: (data) =>
 					for line in data.replace(/\r?\n$/,'').split(/\r?\n/)
 						if match = line.match matchAsyncHeader
@@ -254,6 +275,16 @@ module.exports = DbgGdb =
 
 				exit: (data) =>
 					@miEmitter.emit 'exit'
+
+			@process.emitter.on 'will-throw-error', (event) =>
+				event.handle()
+
+				error = event.error
+
+				if error.code == 'ENOENT' && (error.syscall.indexOf 'spawn') == 0
+					handleError "Could not find `#{command}`  \nPlease ensure it is correctly installed and available in your system PATH"
+				else
+					handleError error.message
 
 			@processAwaiting = false
 			@processQueued = []
@@ -470,22 +501,21 @@ module.exports = DbgGdb =
 
 		canHandleOptions: (options) =>
 			return new Promise (fulfill, reject) =>
-				co =>
-					yield @start options, true
+				@start options
 
-					@sendCommand '-file-exec-and-symbols '+escapePath (path.resolve options.basedir||'', options.path)
-						.then =>
-							@stop()
+				@sendCommand '-file-exec-and-symbols '+escapePath (path.resolve options.basedir||'', options.path)
+					.then =>
+						@stop()
+						fulfill true
+
+					.catch (error) =>
+						@stop()
+						if typeof error == 'string' && error.match /not in executable format/
+							# Error was definitely the file. This is not-debuggable
+							fulfill false
+						else
+							# Error was something else. Say "yes" for now, so that the user can begin the debug and see what it really is
 							fulfill true
-
-						.catch (error) =>
-							@stop()
-							if typeof error == 'string' && error.match /not in executable format/
-								# Error was definitely the file. This is not-debuggable
-								fulfill false
-							else
-								# Error was something else. Say "yes" for now, so that the user can begin the debug and see what it really is
-								fulfill true
 
 		debug: @debug.bind this
 		stop: @stop.bind this

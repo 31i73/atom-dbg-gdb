@@ -2,7 +2,7 @@
 
 An interactive GDB debugger for Atom
 
-![Debug screenshot](http://i.imgur.com/BdBA0yR.png)
+![Debug screenshot](http://i.imgur.com/XcI592U.png)
 
 ## How to use
 
