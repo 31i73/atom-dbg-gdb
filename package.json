@@ -24,10 +24,12 @@
   },
   "package-deps": [
     "dbg",
-    "output-panel"
+    "output-panel",
+    "platformio-ide-terminal#vanossj/platformio-atom-ide-terminal/tree/open-terminal"
   ],
   "dependencies": {
-    "atom-package-deps": "^4.0.1"
+    "atom-package-deps": "^4.0.1",
+    "co": "^4.6.0"
   },
   "providedServices": {
     "dbgProvider": {
@@ -46,6 +48,11 @@
     "output-panel": {
       "versions": {
         "^0.1.0": "consumeOutputPanel"
+      }
+    },
+    "platformioIDETerminal": {
+      "versions": {
+        "^1.1.0": "consumePlatformioIDETerminal"
       }
     }
   }
