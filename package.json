@@ -1,7 +1,7 @@
 {
   "name": "dbg-gdb",
   "main": "./lib/main",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "An interactive GDB debugger for Atom",
   "keywords": [
     "gdb",
@@ -25,10 +25,11 @@
   "package-deps": [
     "dbg",
     "output-panel",
-    "platformio-ide-terminal"
+    "platformio-ide-terminal#vanossj/platformio-atom-ide-terminal/tree/open-terminal"
   ],
   "dependencies": {
-    "atom-package-deps": "^4.0.1"
+    "atom-package-deps": "^4.0.1",
+    "co": "^4.6.0"
   },
   "providedServices": {
     "dbgProvider": {
@@ -51,7 +52,7 @@
     },
     "platformioIDETerminal": {
       "versions": {
-        "^1.0.0": "consumePlatformioIDETerminal"
+        "^1.1.0": "consumePlatformioIDETerminal"
       }
     }
   }

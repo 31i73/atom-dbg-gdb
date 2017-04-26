@@ -1,6 +1,7 @@
 parseMi2 = require './parseMi2'
 fs = require 'fs'
 path = require 'path'
+co = require 'co'
 {BufferedProcess, CompositeDisposable, Emitter} = require 'atom'
 
 escapePath = (path) ->
@@ -30,6 +31,7 @@ module.exports = DbgGdb =
 	frame: 0
 	outputPanel: null
 	terminalService: null
+	appTerm: null
 	miEmitter: null
 
 	activate: (state) ->
@@ -49,128 +51,133 @@ module.exports = DbgGdb =
 		@breakpoints = api.breakpoints
 		@outputPanel?.clear()
 
-		@start options
+		co =>
+			yield @start options
+		.then =>
 
-		@miEmitter.on 'exit', =>
-			@ui.stop()
+			@miEmitter.on 'exit', =>
+				@ui.stop()
 
-		@miEmitter.on 'console', (line) =>
-			@outputPanel?.print line
+			@miEmitter.on 'console', (line) =>
+				@outputPanel?.print line
 
-		@miEmitter.on 'result', ({type, data}) =>
-			switch type
-				when 'running'
-					@ui.running()
+			@miEmitter.on 'result', ({type, data}) =>
+				switch type
+					when 'running'
+						@ui.running()
 
-		@miEmitter.on 'exec', ({type, data}) =>
-			switch type
-				when 'running'
-					@ui.running()
+			@miEmitter.on 'exec', ({type, data}) =>
+				switch type
+					when 'running'
+						@ui.running()
 
-				when 'stopped'
+					when 'stopped'
+						if data['thread-id']
+							@thread = parseInt data['thread-id'], 10
+							# @ui.setThread @thread
 
-					switch data.reason
-						when 'exited-normally'
-							@ui.stop()
-							return
+						switch data.reason
+							when 'exited-normally'
+								@ui.stop()
+								return
 
-						when 'signal-received'
-							if data['signal-name'] != 'SIGINT'
-								@errorEncountered = data['signal-meaning'] or if data['signal-name'] then data['signal-name']+'signal received' else 'Signal received'
-								@ui.showError @errorEncountered
+							when 'signal-received'
+								if data['signal-name'] != 'SIGINT'
+									@errorEncountered = data['signal-meaning'] or if data['signal-name'] then data['signal-name']+'signal received' else 'Signal received'
+									@ui.showError @errorEncountered
 
-					@ui.paused()
+						@ui.paused()
 
-					@sendCommand '-stack-list-frames --thread '+@thread
-						.then ({type, data}) =>
-							stack = []
-							lastValid = false
-							@stackList = data.stack
-							if data.stack.length>0 then for i in [0..data.stack.length-1]
-								frame = data.stack[i]
-								description
+						@sendCommand '-stack-list-frames --thread '+@thread
+							.then ({type, data}) =>
+								stack = []
+								lastValid = false
+								@stackList = data.stack
+								if data.stack.length>0 then for i in [0..data.stack.length-1]
+									frame = data.stack[i]
+									description
 
-								name = ''
-								if frame.func
-									name = frame.func+'()'
-								else
-									name = frame.addr
+									name = ''
+									if frame.func
+										name = frame.func+'()'
+									else
+										name = frame.addr
 
-								framePath = ''
-								if frame.file
-									framePath = frame.file.replace /^\.\//, ''
-								else
-									framePath = frame.from
-									if frame.addr
-										framePath += ':'+frame.addr
+									framePath = ''
+									if frame.file
+										framePath = frame.file.replace /^\.\//, ''
+									else
+										framePath = frame.from
+										if frame.addr
+											framePath += ':'+frame.addr
 
-								description = name + ' - ' + framePath
+									description = name + ' - ' + framePath
 
-								atom.project.getPaths()[0]
+									atom.project.getPaths()[0]
 
-								isLocal = false
-								if frame.file
-									if frame.file.match /^\.\//
-										isLocal = true
-									else if fs.existsSync(atom.project.getPaths()[0]+'/'+frame.file)
-										isLocal = true
+									isLocal = false
+									if frame.file
+										if frame.file.match /^\.\//
+											isLocal = true
+										else if fs.existsSync(atom.project.getPaths()[0]+'/'+frame.file)
+											isLocal = true
 
-								if isLocal and lastValid==false #get the first valid as the last, as this list is reversed
-									lastValid = i
+									if isLocal and lastValid==false #get the first valid as the last, as this list is reversed
+										lastValid = i
 
-								stack.unshift
-									local: isLocal
-									file: frame.fullname
-									line: if frame.line then parseInt(frame.line) else undefined
-									name: name
-									path: framePath
-									error: if i==0 then @errorEncountered else undefined
+									stack.unshift
+										local: isLocal
+										file: frame.fullname
+										line: if frame.line then parseInt(frame.line) else undefined
+										name: name
+										path: framePath
+										error: if i==0 then @errorEncountered else undefined
 
-							@ui.setStack stack
-							# if lastValid!=false
-							# 	@frame = lastValid
-							# 	@ui.setFrame stack.length-1-lastValid #reverse it
-							# 	@refreshFrame()
+								@ui.setStack stack
+								# if lastValid!=false
+								# 	@frame = lastValid
+								# 	@ui.setFrame stack.length-1-lastValid #reverse it
+								# 	@refreshFrame()
 
-							@frame = 0
-							@refreshFrame()
+								@frame = 0
+								@refreshFrame()
 
-		@sendCommand '-file-exec-and-symbols '+escapePath (path.resolve options.basedir||'', options.path)
-			.then =>
-				begin = () =>
-					for breakpoint in @breakpoints
-						@sendCommand '-break-insert '+(escapePath breakpoint.path)+':'+breakpoint.line
+			@sendCommand '-file-exec-and-symbols '+escapePath (path.resolve options.basedir||'', options.path)
+				.then =>
+					begin = () =>
+						for breakpoint in @breakpoints
+							@sendCommand '-break-insert '+(escapePath breakpoint.path)+':'+breakpoint.line
 
-					@sendCommand 'set environment ' + env_var for env_var in options.env_vars if options.env_vars?
+						@sendCommand 'set environment ' + env_var for env_var in options.env_vars if options.env_vars?
 
-					@sendCommand command for command in [].concat options.gdb_commands||[]
+						@sendCommand command for command in [].concat options.gdb_commands||[]
 
-					@sendCommand '-exec-arguments ' + options.args.join(" ") if options.args?
-					@sendCommand '-exec-run'
-						.catch (error) =>
-							if typeof error != 'string' then return
-							@handleMiError error, 'Unable to debug this with GDB'
-							@dbg.stop()
-
-				@sendCommand '-gdb-set mi-async on'
-					.then => begin()
-					.catch =>
-						@sendCommand '-gdb-set target-async on'
-							.then => begin()
+						@sendCommand '-exec-arguments ' + options.args.join(" ") if options.args?
+						@sendCommand '-exec-run'
 							.catch (error) =>
 								if typeof error != 'string' then return
 								@handleMiError error, 'Unable to debug this with GDB'
 								@dbg.stop()
 
-			.catch (error) =>
-				if typeof error != 'string' then return
-				if error.match /not in executable format/
-					atom.notifications.addError 'This file cannot be debugged',
-						description: 'It is not recognised by GDB as a supported executable file'
-						dismissable: true
-				else
-					@handleMiError error, 'Unable to debug this with GDB'
-				@dbg.stop()
+					@sendCommand '-gdb-set mi-async on'
+						.then => begin()
+						.catch =>
+							@sendCommand '-gdb-set target-async on'
+								.then => begin()
+								.catch (error) =>
+									if typeof error != 'string' then return
+									@handleMiError error, 'Unable to debug this with GDB'
+									@dbg.stop()
+
+				.catch (error) =>
+					if typeof error != 'string' then return
+					if error.match /not in executable format/
+						atom.notifications.addError 'This file cannot be debugged',
+							description: 'It is not recognised by GDB as a supported executable file'
+							dismissable: true
+					else
+						@handleMiError error, 'Unable to debug this with GDB'
+					@dbg.stop()
 
 	cleanupFrame: ->
 		@errorEncountered = null
@@ -179,64 +186,77 @@ module.exports = DbgGdb =
 				@variableObjects = {}
 				@variableRootObjects = {}
 
-	start: (options)->
+	start: (options, options_test=false) ->
 		outputRevealed = @outputPanel?.isVisible();
 
 		matchAsyncHeader = /^([\^=*+])(.+?)(?:,(.*))?$/
 		matchStreamHeader = /^([~@&])(.*)?$/
 
-		gdbArgs = ['-quiet','--interpreter=mi2'].concat options.gdb_arguments||[]
-		gdbArgs.push('-tty=' + @outputPanel.ptyTerm.pty) if @outputPanel?.ptyTerm
-
 		@miEmitter = new Emitter()
-		@process = new BufferedProcess
-			command: options.gdb_executable||'gdb'
-			args: gdbArgs
-			options:
-				cwd: (path.resolve options.basedir||'', options.cwd||'')
-			stdout: (data) =>
-				for line in data.replace(/\r?\n$/,'').split(/\r?\n/)
-					if match = line.match matchAsyncHeader
-						type = match[2]
-						data = if match[3] then parseMi2 match[3] else {}
 
-						if @logToConsole then console.log 'dbg-gdb < ',match[1],type,data
+		if options_test or not @terminalService
+			promise = Promise.resolve(null)
+		else
+			if not @appTerm? or @appTerm not in @terminalService.getTerminalViews()
+				@appTerm = @terminalService.open()
+			else if @appTerm.getTerminal()?
+				@appTerm.getTerminal().reset() # clear terminal
+			promise = @appTerm.pty()
 
-						switch match[1]
-							when '^' then @miEmitter.emit 'result' , {type:type, data:data}
-							when '=' then @miEmitter.emit 'notify' , {type:type, data:data}
-							when '*' then @miEmitter.emit 'exec'   , {type:type, data:data}
-							when '+' then @miEmitter.emit 'status' , {type:type, data:data}
+		promise.then (pty) =>
+			gdbArgs = ['-quiet','--interpreter=mi2'].concat options.gdb_arguments||[]
+			gdbArgs.push('-tty=' + pty) if pty?
 
-					else if match = line.match matchStreamHeader
-						data = parseMi2 match[2]
-						data = if data then data._ else ''
+			if @process? then @stop()
 
-						if @logToConsole then console.log 'dbg-gdb < ',match[1],data
+			@process = new BufferedProcess
+				command: options.gdb_executable||'gdb'
+				args: gdbArgs
+				options:
+					cwd: (path.resolve options.basedir||'', options.cwd||'')
+				stdout: (data) =>
+					for line in data.replace(/\r?\n$/,'').split(/\r?\n/)
+						if match = line.match matchAsyncHeader
+							type = match[2]
+							data = if match[3] then parseMi2 match[3] else {}
 
-						switch match[1]
-							when '~' then @miEmitter.emit 'console', data
-					else
-						if line!='(gdb)' and line!='(gdb) '
-							if @logToConsole then console.log 'dbg-gdb < ',line
-							if @outputPanel
-								if !outputRevealed
-									outputRevealed = true
-									@outputPanel.show()
-								@outputPanel.print line
+							if @logToConsole then console.log 'dbg-gdb < ',match[1],type,data
 
-			stderr: (data) =>
-				if @outputPanel
-					if !outputRevealed
-						outputRevealed = true
-						@outputPanel.show()
-					@outputPanel.print line for line in data.replace(/\r?\n$/,'').split(/\r?\n/)
+							switch match[1]
+								when '^' then @miEmitter.emit 'result' , {type:type, data:data}
+								when '=' then @miEmitter.emit 'notify' , {type:type, data:data}
+								when '*' then @miEmitter.emit 'exec'   , {type:type, data:data}
+								when '+' then @miEmitter.emit 'status' , {type:type, data:data}
 
-			exit: (data) =>
-				@miEmitter.emit 'exit'
+						else if match = line.match matchStreamHeader
+							data = parseMi2 match[2]
+							data = if data then data._ else ''
 
-		@processAwaiting = false
-		@processQueued = []
+							if @logToConsole then console.log 'dbg-gdb < ',match[1],data
+
+							switch match[1]
+								when '~' then @miEmitter.emit 'console', data
+						else
+							if line!='(gdb)' and line!='(gdb) '
+								if @logToConsole then console.log 'dbg-gdb < ',line
+								if @outputPanel
+									if !outputRevealed
+										outputRevealed = true
+										@outputPanel.show()
+									@outputPanel.print line
+
+				stderr: (data) =>
+					if @outputPanel
+						if !outputRevealed
+							outputRevealed = true
+							@outputPanel.show()
+						@outputPanel.print line for line in data.replace(/\r?\n$/,'').split(/\r?\n/)
+
+				exit: (data) =>
+					@miEmitter.emit 'exit'
+
+			@processAwaiting = false
+			@processQueued = []
 
 	stop: ->
 		# @cleanupFrame()
@@ -450,21 +470,22 @@ module.exports = DbgGdb =
 
 		canHandleOptions: (options) =>
 			return new Promise (fulfill, reject) =>
-				@start options
+				co =>
+					yield @start options, true
 
-				@sendCommand '-file-exec-and-symbols '+escapePath (path.resolve options.basedir||'', options.path)
-					.then =>
-						@stop()
-						fulfill true
-
-					.catch (error) =>
-						@stop()
-						if typeof error == 'string' && error.match /not in executable format/
-							# Error was definitely the file. This is not-debuggable
-							fulfill false
-						else
-							# Error was something else. Say "yes" for now, so that the user can begin the debug and see what it really is
+					@sendCommand '-file-exec-and-symbols '+escapePath (path.resolve options.basedir||'', options.path)
+						.then =>
+							@stop()
 							fulfill true
+
+						.catch (error) =>
+							@stop()
+							if typeof error == 'string' && error.match /not in executable format/
+								# Error was definitely the file. This is not-debuggable
+								fulfill false
+							else
+								# Error was something else. Say "yes" for now, so that the user can begin the debug and see what it really is
+								fulfill true
 
 		debug: @debug.bind this
 		stop: @stop.bind this
