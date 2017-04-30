@@ -137,8 +137,17 @@ module.exports = DbgGdb =
 		@sendCommand '-file-exec-and-symbols '+escapePath (path.resolve options.basedir||'', options.path)
 			.then =>
 				begin = () =>
+					shown_breakpoint_warning = false
 					for breakpoint in @breakpoints
 						@sendCommand '-break-insert '+(escapePath breakpoint.path)+':'+breakpoint.line
+							.catch (error) =>
+								if typeof error != 'string' then return
+								if error.match /no symbol table is loaded/i
+									unless shown_breakpoint_warning
+										shown_breakpoint_warning = true
+										atom.notifications.addError 'Unable to use breakpoints',
+											description: 'This program was not compiled with debug information.  \nBreakpoints cannot be used.'
+											dismissable: true
 
 					@sendCommand 'set environment ' + env_var for env_var in options.env_vars if options.env_vars?
 
@@ -455,6 +464,12 @@ module.exports = DbgGdb =
 	addBreakpoint: (breakpoint) ->
 		@breakpoints.push breakpoint
 		@sendCommand '-break-insert '+(escapePath breakpoint.path)+':'+breakpoint.line
+			.catch (error) =>
+				if typeof error != 'string' then return
+				if error.match /no symbol table is loaded/i
+					atom.notifications.addError 'Unable to use breakpoints',
+						description: 'This program was not compiled with debug information.  \nBreakpoints cannot be used.'
+						dismissable: true
 
 	removeBreakpoint: (breakpoint) ->
 		for i,compare in @breakpoints
