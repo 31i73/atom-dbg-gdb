@@ -29,6 +29,7 @@ module.exports = DbgGdb =
 	thread: 1
 	frame: 0
 	outputPanel: null
+	interactiveSession: null
 	miEmitter: null
 
 	activate: (state) ->
@@ -214,10 +215,16 @@ module.exports = DbgGdb =
 			handleError "Working directory is invalid:  \n`#{cwd}`"
 			return
 
+		args = ['-quiet','--interpreter=mi2']
+		if @outputPanel
+			@interactiveSession = @outputPanel.getInteractiveSession()
+			args.push '--tty='+@interactiveSession.pty.pty
+		args = args.concat options.gdb_arguments||[]
+
 		@miEmitter = new Emitter()
 		@process = new BufferedProcess
 			command: command
-			args: ['-quiet','--interpreter=mi2'].concat options.gdb_arguments||[]
+			args: args
 			options:
 				cwd: cwd
 			stdout: (data) =>
@@ -284,6 +291,10 @@ module.exports = DbgGdb =
 		@process = null
 		@processAwaiting = false
 		@processQueued = []
+
+		if @interactiveSession
+			@interactiveSession.discard()
+			@interactiveSession = null
 
 	continue: ->
 		@cleanupFrame().then =>

@@ -45,7 +45,7 @@
     },
     "output-panel": {
       "versions": {
-        "^0.1.0": "consumeOutputPanel"
+        "^1.0.0": "consumeOutputPanel"
       }
     }
   }
