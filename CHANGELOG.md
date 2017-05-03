@@ -1,3 +1,7 @@
+## 1.7.0
+* Added: Support for interactive (stdin) console applications in the output panel
+* Fixed: Did not display feedback if trying to use breakpoints with an executable without debug symbols
+
 ## 1.6.0
 * Added: `gdb_executable`, `gdb_arguments` and `gdb_commands` parameters
 * Fixed: Debugging would fail if the `cwd` wasn't included (this should be optional)
