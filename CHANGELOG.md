@@ -1,6 +1,10 @@
 ## 1.7.0
 * Added: Support for interactive (stdin) console applications in the output panel
 * Fixed: Did not display feedback if trying to use breakpoints with an executable without debug symbols
+* #### 1.7.1
+	* Fixed: `path` parameter was wrongfully required, and would break in weird ways if it missing (for instance with remote debugging)
+	* Fixed: Breakpoints would not work if custom commands were used to select a target (custom commands are now executed first, instead)
+	* Improved: Error feedback with regard to missing executables and debug info
 
 ## 1.6.0
 * Added: `gdb_executable`, `gdb_arguments` and `gdb_commands` parameters
