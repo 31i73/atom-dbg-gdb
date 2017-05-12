@@ -17,7 +17,7 @@ An interactive GDB debugger for Atom
 Creates a `dbgProvider` for GDB, see [basic dbgProvider  service description](https://github.com/31i73/atom-dbg#consumed-service-dbgprovider)
 
 ## Supported options
-> `path` - The path to the file to debug  
+> `path` - *Optional*. The path to the file to debug  
 > `args` - *Optional*. An array of arguments to pass to the file being debugged  
 > `cwd` - *Optional*. The working directory to use when debugging  
 > `env_vars` - *Optional*. An array of environmental variables, ex: ['VAR1=9', 'VAR2=thing', ...]  

@@ -135,58 +135,82 @@ module.exports = DbgGdb =
 							@frame = 0
 							@refreshFrame()
 
-		@sendCommand '-file-exec-and-symbols '+escapePath (path.resolve options.basedir||'', options.path)
-			.then =>
-				begin = () =>
-					shown_breakpoint_warning = false
-					for breakpoint in @breakpoints
+		task = Promise.resolve()
+
+		if options.path
+			task = task.then => @sendCommand '-file-exec-and-symbols '+escapePath (path.resolve options.basedir||'', options.path)
+
+		task = task.then =>
+			begin = () =>
+				@sendCommand 'set environment ' + env_var for env_var in options.env_vars if options.env_vars?
+
+				task = Promise.resolve()
+
+				for command in [].concat options.gdb_commands||[]
+					do (command) =>
+						task = task.then => @sendCommand command
+
+				show_breakpoint_warning = false
+				for breakpoint in @breakpoints
+					task = task.then =>
 						@sendCommand '-break-insert '+(escapePath breakpoint.path)+':'+breakpoint.line
 							.catch (error) =>
 								if typeof error != 'string' then return
 								if error.match /no symbol table is loaded/i
-									unless shown_breakpoint_warning
-										shown_breakpoint_warning = true
-										atom.notifications.addError 'Unable to use breakpoints',
-											description: 'This program was not compiled with debug information.  \nBreakpoints cannot be used.'
-											dismissable: true
+									show_breakpoint_warning = true
 
-					@sendCommand 'set environment ' + env_var for env_var in options.env_vars if options.env_vars?
+				started = =>
+					if show_breakpoint_warning
+						atom.notifications.addWarning 'Unable to use breakpoints',
+							description: 'This program was not compiled with debug information.  \nBreakpoints cannot be used.'
+							dismissable: true
 
-					task = Promise.resolve()
-					for command in [].concat options.gdb_commands||[]
-						do (command) =>
-							task = task.then => @sendCommand command
+				task = task.then =>
+					@sendCommand '-exec-arguments ' + options.args.join(" ") if options.args?
+					@sendCommand '-exec-run'
+						.then =>
+							started()
+						, (error) =>
+							if typeof error != 'string' then return
+							if error.match /target does not support "run"/
+								@sendCommand '-exec-continue'
+									.then =>
+										started()
+									, (error) =>
+										if typeof error != 'string' then return
+										@handleMiError error, 'Unable to debug this with GDB'
+										@dbg.stop()
+								return
 
-					task.then =>
-						@sendCommand '-exec-arguments ' + options.args.join(" ") if options.args?
-						@sendCommand '-exec-run'
-							.catch (error) =>
-								if typeof error != 'string' then return
-								if error.match /target does not support "run"/
-									@sendCommand '-exec-continue'
-								else
-									@handleMiError error, 'Unable to debug this with GDB'
-									@dbg.stop()
+							else if error.match /no executable file specified/i
+								atom.notifications.addError 'Nothing to debug',
+									description: 'Nothing was specified for GDB to debug. Specify a `path`, or `gdb_commands` to select a target'
+									dismissable: true
 
-				@sendCommand '-gdb-set mi-async on'
-					.then => begin()
-					.catch =>
-						@sendCommand '-gdb-set target-async on'
-							.then => begin()
-							.catch (error) =>
-								if typeof error != 'string' then return
+							else
 								@handleMiError error, 'Unable to debug this with GDB'
-								@dbg.stop()
 
-			.catch (error) =>
-				if typeof error != 'string' then return
-				if error.match /not in executable format/
-					atom.notifications.addError 'This file cannot be debugged',
-						description: 'It is not recognised by GDB as a supported executable file'
-						dismissable: true
-				else
-					@handleMiError error, 'Unable to debug this with GDB'
-				@dbg.stop()
+							@dbg.stop()
+
+			@sendCommand '-gdb-set mi-async on'
+				.then => begin()
+				.catch =>
+					@sendCommand '-gdb-set target-async on'
+						.then => begin()
+						.catch (error) =>
+							if typeof error != 'string' then return
+							@handleMiError error, 'Unable to debug this with GDB'
+							@dbg.stop()
+
+		task.catch (error) =>
+			if typeof error != 'string' then return
+			if error.match /not in executable format/i
+				atom.notifications.addError 'This file cannot be debugged',
+					description: 'It is not recognised by GDB as a supported executable file'
+					dismissable: true
+			else
+				@handleMiError error, 'Unable to debug this with GDB'
+			@dbg.stop()
 
 	cleanupFrame: ->
 		@errorEncountered = null
