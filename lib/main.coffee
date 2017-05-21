@@ -240,7 +240,7 @@ module.exports = DbgGdb =
 			return
 
 		args = ['-quiet','--interpreter=mi2']
-		if @outputPanel
+		if @outputPanel and @outputPanel.getInteractiveSession
 			@interactiveSession = @outputPanel.getInteractiveSession()
 			args.push '--tty='+@interactiveSession.pty.pty
 		args = args.concat options.gdb_arguments||[]
