@@ -29,11 +29,14 @@ module.exports = DbgGdb =
 	thread: 1
 	frame: 0
 	outputPanel: null
+	showOutputPanelNext: false # is the output panel scheduled to be displayed on next print?
+	unseenOutputPanelContent: false # has there been program output printed since the program was last paused?
+	closedNaturally: false # did the program naturally terminate, while not paused?
 	interactiveSession: null
 	miEmitter: null
 
 	activate: (state) ->
-		require('atom-package-deps').install('dbg-gdb');
+		require('atom-package-deps').install('dbg-gdb')
 
 		atom.config.observe 'dbg-gdb.logToConsole', (set) =>
 			@logToConsole = set
@@ -52,7 +55,11 @@ module.exports = DbgGdb =
 			@ui.stop()
 
 		@miEmitter.on 'console', (line) =>
-			@outputPanel?.print line
+			if @outputPanel
+				if @showOutputPanelNext
+					@showOutputPanelNext = false
+					@outputPanel.show()
+				@outputPanel.print '\x1b[37;40m'+line.replace(/([^\r\n]+)\r?\n/,'\x1b[0K$1\r\n')+'\x1b[39;49m', false
 
 		@miEmitter.on 'result', ({type, data}) =>
 			switch type
@@ -71,14 +78,20 @@ module.exports = DbgGdb =
 
 					switch data.reason
 						when 'exited-normally'
+							@closedNaturally = true
 							@ui.stop()
 							return
+
+						# when 'exited-signalled'
+							# TODO: Somehow let dbg know we can't continue. Our only option from here is to stop
+							# although leave paused for now so the exit state can be inspected
 
 						when 'signal-received'
 							if data['signal-name'] != 'SIGINT'
 								@errorEncountered = data['signal-meaning'] or if data['signal-name'] then data['signal-name']+'signal received' else 'Signal received'
 								@ui.showError @errorEncountered
 
+					@unseenOutputPanelContent = false
 					@ui.paused()
 
 					@sendCommand '-stack-list-frames --thread '+@thread
@@ -220,7 +233,10 @@ module.exports = DbgGdb =
 				@variableRootObjects = {}
 
 	start: (options)->
-		outputRevealed = @outputPanel?.isVisible();
+		@showOutputPanelNext = true
+		@unseenOutputPanelContent = false
+		@closedNaturally = false
+		@outputPanel?.clear()
 
 		matchAsyncHeader = /^([\^=*+])(.+?)(?:,(.*))?$/
 		matchStreamHeader = /^([~@&])(.*)?$/
@@ -243,6 +259,11 @@ module.exports = DbgGdb =
 		if @outputPanel and @outputPanel.getInteractiveSession
 			@interactiveSession = @outputPanel.getInteractiveSession()
 			args.push '--tty='+@interactiveSession.pty.pty
+			@interactiveSession.pty.on 'data', (data) =>
+				if @showOutputPanelNext
+					@showOutputPanelNext = false
+					@outputPanel.show()
+				@unseenOutputPanelContent = true
 		args = args.concat options.gdb_arguments||[]
 
 		@miEmitter = new Emitter()
@@ -277,16 +298,18 @@ module.exports = DbgGdb =
 						if line!='(gdb)' and line!='(gdb) '
 							if @logToConsole then console.log 'dbg-gdb < ',line
 							if @outputPanel
-								if !outputRevealed
-									outputRevealed = true
+								if @showOutputPanelNext
+									@showOutputPanelNext = false
 									@outputPanel.show()
+								@unseenOutputPanelContent = true
 								@outputPanel.print line
 
 			stderr: (data) =>
 				if @outputPanel
-					if !outputRevealed
-						outputRevealed = true
+					if @showOutputPanelNext
+						@showOutputPanelNext = false
 						@outputPanel.show()
+					@unseenOutputPanelContent = true
 					@outputPanel.print line for line in data.replace(/\r?\n$/,'').split(/\r?\n/)
 
 			exit: (data) =>
@@ -311,7 +334,7 @@ module.exports = DbgGdb =
 		@variableObjects = {}
 		@variableRootObjects = {}
 
-		@process?.kill();
+		@process?.kill()
 		@process = null
 		@processAwaiting = false
 		@processQueued = []
@@ -319,6 +342,11 @@ module.exports = DbgGdb =
 		if @interactiveSession
 			@interactiveSession.discard()
 			@interactiveSession = null
+
+		setTimeout => # wait for any queued output to process, first
+			if !@closedNaturally or !@unseenOutputPanelContent
+				@outputPanel?.hide()
+		, 0
 
 	continue: ->
 		@cleanupFrame().then =>
