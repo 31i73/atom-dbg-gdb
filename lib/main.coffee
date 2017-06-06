@@ -256,14 +256,22 @@ module.exports = DbgGdb =
 			return
 
 		args = ['-quiet','--interpreter=mi2']
+
 		if @outputPanel and @outputPanel.getInteractiveSession
-			@interactiveSession = @outputPanel.getInteractiveSession()
+			interactiveSession = @outputPanel.getInteractiveSession()
+			if interactiveSession.pty
+				@interactiveSession = interactiveSession
+
+		if @interactiveSession
 			args.push '--tty='+@interactiveSession.pty.pty
 			@interactiveSession.pty.on 'data', (data) =>
 				if @showOutputPanelNext
 					@showOutputPanelNext = false
 					@outputPanel.show()
 				@unseenOutputPanelContent = true
+		else
+			options.gdb_commands = ([].concat options.gdb_commands||[]).concat 'set new-console on'
+
 		args = args.concat options.gdb_arguments||[]
 
 		@miEmitter = new Emitter()
