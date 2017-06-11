@@ -269,7 +269,8 @@ module.exports = DbgGdb =
 					@showOutputPanelNext = false
 					@outputPanel.show()
 				@unseenOutputPanelContent = true
-		else
+				
+		else if process.platform=='win32'
 			options.gdb_commands = ([].concat options.gdb_commands||[]).concat 'set new-console on'
 
 		args = args.concat options.gdb_arguments||[]
