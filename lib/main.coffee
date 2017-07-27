@@ -457,7 +457,7 @@ module.exports = DbgGdb =
 
 								.catch (error) =>
 									if typeof error != 'string' then return
-									@handleMiError error
+									if variable.value != '<optimized out>' then @handleMiError error
 									variables.push
 										name: variable.name
 										value: variable.value
