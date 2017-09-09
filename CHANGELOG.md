@@ -5,6 +5,18 @@
 	* Fixed: `path` parameter was wrongfully required, and would break in weird ways if it missing (for instance with remote debugging)
 	* Fixed: Breakpoints would not work if custom commands were used to select a target (custom commands are now executed first, instead)
 	* Improved: Error feedback with regard to missing executables and debug info
+* #### 1.7.2
+	* Fixed: Did not show the output panel in old (pre 1.17) versions of atom
+* #### 1.7.3
+	* Fixed: Output panel did not always appear on program output
+	* Improved: Output panel now autohides on debug end (unless there was new content since the last pause)
+* #### 1.7.4
+	* Fixed: TTY windows support
+* #### 1.7.5
+	* Fixed: Error starting a debug in linux
+	* Fixed: Would error if attempting to debug in \*nix without the output panel
+* #### 1.7.7
+	* Added: Breakpoints now work with dynamically loaded libraries ([CedScilab](https://github.com/CedScilab))
 
 ## 1.6.0
 * Added: `gdb_executable`, `gdb_arguments` and `gdb_commands` parameters
