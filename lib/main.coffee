@@ -166,7 +166,7 @@ module.exports = DbgGdb =
 				show_breakpoint_warning = false
 				for breakpoint in @breakpoints
 					task = task.then =>
-						@sendCommand '-break-insert '+(escapePath breakpoint.path)+':'+breakpoint.line
+						@sendCommand '-break-insert -f '+(escapePath breakpoint.path)+':'+breakpoint.line
 							.catch (error) =>
 								if typeof error != 'string' then return
 								if error.match /no symbol table is loaded/i
@@ -457,7 +457,7 @@ module.exports = DbgGdb =
 
 								.catch (error) =>
 									if typeof error != 'string' then return
-									@handleMiError error
+									if variable.value != '<optimized out>' then @handleMiError error
 									variables.push
 										name: variable.name
 										value: variable.value
@@ -535,7 +535,7 @@ module.exports = DbgGdb =
 
 	addBreakpoint: (breakpoint) ->
 		@breakpoints.push breakpoint
-		@sendCommand '-break-insert '+(escapePath breakpoint.path)+':'+breakpoint.line
+		@sendCommand '-break-insert -f '+(escapePath breakpoint.path)+':'+breakpoint.line
 			.catch (error) =>
 				if typeof error != 'string' then return
 				if error.match /no symbol table is loaded/i
