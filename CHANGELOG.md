@@ -17,6 +17,8 @@
 	* Fixed: Would error if attempting to debug in \*nix without the output panel
 * #### 1.7.7
 	* Added: Breakpoints now work with dynamically loaded libraries ([CedScilab](https://github.com/CedScilab))
+* #### 1.7.8
+	* Improved: Better reporting when executable debug symbols are not available or breakpoints are in invalid files ([#35 - wevcode](https://github.com/31i73/atom-dbg/issues/35))
 
 ## 1.6.0
 * Added: `gdb_executable`, `gdb_arguments` and `gdb_commands` parameters
