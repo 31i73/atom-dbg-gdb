@@ -166,16 +166,14 @@ module.exports = DbgGdb =
 				show_breakpoint_warning = false
 				for breakpoint in @breakpoints
 					task = task.then =>
-						@sendCommand '-break-insert -f '+(escapePath breakpoint.path)+':'+breakpoint.line
-							.catch (error) =>
-								if typeof error != 'string' then return
-								if error.match /no symbol table is loaded/i
-									show_breakpoint_warning = true
+						@sendCommand '-break-insert -f '+(escapePath breakpoint.path)+':'+breakpoint.line, (log) =>
+							if log.match /no symbol table is loaded/i
+								show_breakpoint_warning = true
 
 				started = =>
 					if show_breakpoint_warning
-						atom.notifications.addWarning 'Unable to use breakpoints',
-							description: 'This program was not compiled with debug information.  \nBreakpoints cannot be used.'
+						atom.notifications.addError 'Error inserting breakpoints',
+							description: 'This program was not compiled with debug symbols.  \nBreakpoints cannot be used.'
 							dismissable: true
 
 				task = task.then =>
@@ -269,7 +267,7 @@ module.exports = DbgGdb =
 					@showOutputPanelNext = false
 					@outputPanel.show()
 				@unseenOutputPanelContent = true
-				
+
 		else if process.platform=='win32'
 			options.gdb_commands = ([].concat options.gdb_commands||[]).concat 'set new-console on'
 
@@ -302,7 +300,8 @@ module.exports = DbgGdb =
 						if @logToConsole then console.log 'dbg-gdb < ',match[1],data
 
 						switch match[1]
-							when '~' then @miEmitter.emit 'console', data
+							when '~' then @miEmitter.emit 'console', data.trim()
+							when '&' then @miEmitter.emit 'log', data.trim()
 					else
 						if line!='(gdb)' and line!='(gdb) '
 							if @logToConsole then console.log 'dbg-gdb < ',line
@@ -490,7 +489,7 @@ module.exports = DbgGdb =
 					if typeof error != 'string' then return
 					@handleMiError error
 
-	sendCommand: (command) ->
+	sendCommand: (command, logCallback) ->
 		if @processAwaiting
 			return new Promise (resolve, reject) =>
 				@processQueued.push =>
@@ -498,10 +497,17 @@ module.exports = DbgGdb =
 						.then resolve, reject
 
 		@processAwaiting = true
+
+		logListener = null
+		if logCallback
+			logListener = @miEmitter.on 'log', logCallback
+
+		successEvent = null
+		exitEvent = null
 		promise = Promise.race [
 			new Promise (resolve, reject) =>
-				event = @miEmitter.on 'result', ({type, data}) =>
-					event.dispose()
+				successEvent = @miEmitter.once 'result', ({type, data}) =>
+					exitEvent.dispose()
 					# "done", "running" (same as done), "connected", "error", "exit"
 					# https://sourceware.org/gdb/onlinedocs/gdb/GDB_002fMI-Result-Records.html#GDB_002fMI-Result-Records
 					if type=='error'
@@ -509,15 +515,18 @@ module.exports = DbgGdb =
 					else
 						resolve {type:type, data:data}
 			,new Promise (resolve, reject) =>
-				event = @miEmitter.on 'exit', =>
-					event.dispose()
+				exitEvent = @miEmitter.once 'exit', =>
+					successEvent.dispose()
 					reject 'Debugger terminated'
 		]
+
 		promise.then =>
+			logListener?.dispose()
 			@processAwaiting = false
 			if @processQueued.length > 0
 				@processQueued.shift()()
 		, (error) =>
+			logListener?.dispose()
 			@processAwaiting = false
 			if typeof error != 'string'
 				console.error error
@@ -535,13 +544,16 @@ module.exports = DbgGdb =
 
 	addBreakpoint: (breakpoint) ->
 		@breakpoints.push breakpoint
-		@sendCommand '-break-insert -f '+(escapePath breakpoint.path)+':'+breakpoint.line
-			.catch (error) =>
-				if typeof error != 'string' then return
-				if error.match /no symbol table is loaded/i
-					atom.notifications.addError 'Unable to use breakpoints',
-						description: 'This program was not compiled with debug information.  \nBreakpoints cannot be used.'
-						dismissable: true
+		@sendCommand '-break-insert -f '+(escapePath breakpoint.path)+':'+breakpoint.line, (log) =>
+			if matched = log.match /no source file named (.*?)\.?$/i
+				atom.notifications.addError 'Error inserting breakpoint',
+					description: 'This file was not found within the current executable.  \nPlease ensure debug symbols for this file are included in the compiled executable.'
+					dismissable: true
+
+			else if log.match /no symbol table is loaded/i
+				atom.notifications.addError 'Error inserting breakpoint',
+					description: 'This program was not compiled with debug symbols.  \nBreakpoints cannot be used.'
+					dismissable: true
 
 	removeBreakpoint: (breakpoint) ->
 		for i,compare in @breakpoints
