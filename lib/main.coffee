@@ -6,6 +6,9 @@ path = require 'path'
 escapePath = (path) ->
 	return (path.replace /\\/g, '/').replace /[\s\t\n]/g, '\\ '
 
+escapeString = (input) ->
+	return JSON.stringify input
+
 prettyValue = (value) ->
 	return (value.replace /({|,)/g, '$1\n').replace /(})/g, '\n$1' # split gdb's summaries onto multiple lines, at commas and braces. An ugly hack, but it'll do for now
 
@@ -384,7 +387,7 @@ module.exports = DbgGdb =
 		else
 			variableName = @variableObjects[name]
 
-		@sendCommand '-var-list-children 1 '+variableName
+		@sendCommand '-var-list-children 1 '+escapeString variableName
 			.then ({type, data}) =>
 				children = []
 				if data.children then for child in data.children
