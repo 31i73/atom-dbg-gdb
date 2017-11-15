@@ -33,7 +33,7 @@
     "dbgProvider": {
       "description": "Provides a dbg gdb debugger",
       "versions": {
-        "1.1.0": "provideDbgProvider"
+        "1.2.0": "provideDbgProvider"
       }
     }
   },

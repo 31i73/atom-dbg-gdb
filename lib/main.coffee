@@ -390,21 +390,40 @@ module.exports = DbgGdb =
 		@sendCommand '-var-list-children 1 '+escapeString variableName
 			.then ({type, data}) =>
 				children = []
+				promises = []
 				if data.children then for child in data.children
 					@variableObjects[name+'.'+child.exp] = child.name
 
-					children.push
-						name: child.exp
-						type: child.type
-						value: prettyValue child.value
-						expandable: child.numchild and parseInt(child.numchild) > 0
+					if (
+						# access modifier
+						!child.value and (child.exp=='public' or child.exp=='private' or child.exp=='protected') or
+						# parent type
+						child.exp == child.type
+					)
+						promise = @getVariableChildren name+'.'+child.exp
+							.then (subChildren) =>
+								for subChild in subChildren
+									children.push subChild
 
-				fulfill children
+						promises.push promise
+
+					else
+						children.push
+							fullName: name + '.' + child.exp
+							name: child.exp
+							type: child.type
+							value: prettyValue child.value||''
+							expandable: child.numchild and parseInt(child.numchild) > 0 or child.dynamic and parseInt(child.dynamic) > 0
+
+				Promise.all promises
+					.then ->
+						fulfill children
 
 			.catch (error) =>
 				if typeof error != 'string' then return
 
 				fulfill [
+					fullName: ''
 					name: ''
 					type: ''
 					value: error
@@ -454,7 +473,7 @@ module.exports = DbgGdb =
 										name: variable.name
 										value: prettyValue variable.value
 										type: data.type
-										expandable: data.numchild and (parseInt data.numchild) > 0
+										expandable: data.numchild and (parseInt data.numchild) > 0 or data.dynamic and (parseInt data.dynamic) > 0
 									stop()
 
 								.catch (error) =>
