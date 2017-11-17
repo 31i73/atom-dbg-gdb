@@ -19,8 +19,14 @@ module.exports = DbgGdb =
 			description: 'For debugging GDB problems'
 			type: 'boolean'
 			default: false
+		usePrettyPrinting:
+			title: 'Use pretty printers'
+			description: 'When browsing variables and available, use pretty printer custom formatted rules instead of raw data'
+			type: 'boolean'
+			default: true
 	dbg: null
 	logToConsole: false
+	usePrettyPrinting: true
 	breakpoints: []
 	ui: null
 	process: null
@@ -43,6 +49,9 @@ module.exports = DbgGdb =
 
 		atom.config.observe 'dbg-gdb.logToConsole', (set) =>
 			@logToConsole = set
+
+		atom.config.observe 'dbg-gdb.usePrettyPrinting', (set) =>
+			@usePrettyPrinting = set
 
 	consumeOutputPanel: (outputPanel) ->
 		@outputPanel = outputPanel
@@ -155,6 +164,9 @@ module.exports = DbgGdb =
 
 		if options.path
 			task = task.then => @sendCommand '-file-exec-and-symbols '+escapePath (path.resolve options.basedir||'', options.path)
+
+		if @usePrettyPrinting
+			task = task.then => @sendCommand '-enable-pretty-printing'
 
 		task = task.then =>
 			begin = () =>
@@ -381,49 +393,66 @@ module.exports = DbgGdb =
 			@refreshFrame()
 
 	getVariableChildren: (name) -> return new Promise (fulfill) =>
-		seperator = name.lastIndexOf '.'
-		if seperator >= 0
-			variableName = @variableObjects[name.substr 0, seperator] + '.' + (name.substr seperator+1)
-		else
-			variableName = @variableObjects[name]
 
-		@sendCommand '-var-list-children 1 '+escapeString variableName
-			.then ({type, data}) =>
-				children = []
-				promises = []
-				if data.children then for child in data.children
-					@variableObjects[name+'.'+child.exp] = child.name
+		request = (name) => return new Promise (fulfill, reject) =>
+			seperator = name.lastIndexOf '.'
+			if seperator >= 0
+				variableName = @variableObjects[name.substr 0, seperator] + '.' + (name.substr seperator+1)
+			else
+				variableName = @variableObjects[name]
 
-					if (
-						# access modifier
-						!child.value and (child.exp=='public' or child.exp=='private' or child.exp=='protected') or
-						# parent type
-						child.exp == child.type
-					)
-						promise = @getVariableChildren name+'.'+child.exp
-							.then (subChildren) =>
-								for subChild in subChildren
-									children.push subChild
+			@sendCommand '-var-list-children 1 '+escapeString variableName
+				.then ({type, data}) =>
+					children = []
+					promises = []
+					if data.children then for child in data.children
+						@variableObjects[name+'.'+child.exp] = child.name
 
-						promises.push promise
+						if (
+							# access modifier
+							!child.value and (child.exp=='public' or child.exp=='private' or child.exp=='protected') or
+							# parent type
+							child.exp == child.type
+						)
+							promise = request name+'.'+child.exp
+								.then (subChildren) =>
+									for subChild in subChildren
+										children.push subChild
 
-					else
-						children.push
-							fullName: name + '.' + child.exp
-							name: child.exp
-							type: child.type
-							value: prettyValue child.value||''
-							expandable: child.numchild and parseInt(child.numchild) > 0 or child.dynamic and parseInt(child.dynamic) > 0
+							promises.push promise
 
-				Promise.all promises
-					.then ->
-						fulfill children
+						else
+							children.push
+								fullName: name + '.' + child.exp
+								name: child.exp
+								type: child.type
+								value: prettyValue child.value||''
+								expandable: child.numchild and parseInt(child.numchild) > 0 or child.dynamic and parseInt(child.dynamic) > 0
+
+					Promise.all promises
+						.then ->
+							fulfill children
+						.catch (error) ->
+							reject error
+
+				.catch (error) =>
+					reject error
+
+		request name
+			.then (children) =>
+				if children.length < 1
+					children.push
+						name: ''
+						type: ''
+						value: 'No children'
+						expandable: false
+
+				fulfill children
 
 			.catch (error) =>
-				if typeof error != 'string' then return
+				if typeof error != 'string' then error = 'Unknown error'
 
 				fulfill [
-					fullName: ''
 					name: ''
 					type: ''
 					value: error
