@@ -43,6 +43,7 @@ module.exports = DbgGdb =
 	closedNaturally: false # did the program naturally terminate, while not paused?
 	interactiveSession: null
 	miEmitter: null
+	options: null
 
 	activate: (state) ->
 		require('atom-package-deps').install('dbg-gdb')
@@ -192,31 +193,35 @@ module.exports = DbgGdb =
 							dismissable: true
 
 				task = task.then =>
-					@sendCommand '-exec-arguments ' + options.args.join(" ") if options.args?
-					@sendCommand '-exec-run'
-						.then =>
-							started()
-						, (error) =>
-							if typeof error != 'string' then return
-							if error.match /target does not support "run"/
-								@sendCommand '-exec-continue'
-									.then =>
-										started()
-									, (error) =>
-										if typeof error != 'string' then return
-										@handleMiError error, 'Unable to debug this with GDB'
-										@dbg.stop()
-								return
+					if options.gdb_core
+						started()
+						@miEmitter.emit 'exec', {type:'stopped', data:parseMi2 'signal-name="SIGINT",signal-meaning="Interrupt"'}
+					else
+						@sendCommand '-exec-arguments ' + options.args.join(" ") if options.args?
+						@sendCommand '-exec-run'
+							.then =>
+								started()
+							, (error) =>
+								if typeof error != 'string' then return
+								if error.match /target does not support "run"/
+									@sendCommand '-exec-continue'
+										.then =>
+											started()
+										, (error) =>
+											if typeof error != 'string' then return
+											@handleMiError error, 'Unable to debug this with GDB'
+											@dbg.stop()
+									return
 
-							else if error.match /no executable file specified/i
-								atom.notifications.addError 'Nothing to debug',
-									description: 'Nothing was specified for GDB to debug. Specify a `path`, or `gdb_commands` to select a target'
-									dismissable: true
+								else if error.match /no executable file specified/i
+									atom.notifications.addError 'Nothing to debug',
+										description: 'Nothing was specified for GDB to debug. Specify a `path`, or `gdb_commands` to select a target'
+										dismissable: true
 
-							else
-								@handleMiError error, 'Unable to debug this with GDB'
+								else
+									@handleMiError error, 'Unable to debug this with GDB'
 
-							@dbg.stop()
+								@dbg.stop()
 
 			@sendCommand '-gdb-set mi-async on'
 				.then => begin()
@@ -246,6 +251,7 @@ module.exports = DbgGdb =
 				@variableRootObjects = {}
 
 	start: (options)->
+		@options = options
 		@showOutputPanelNext = true
 		@unseenOutputPanelContent = false
 		@closedNaturally = false
@@ -269,6 +275,15 @@ module.exports = DbgGdb =
 			return
 
 		args = ['-quiet','--interpreter=mi2']
+
+		if options.gdb_core
+			core_path = path.resolve options.basedir||'', options.gdb_core
+
+			if !fs.existsSync core_path
+				handleError "Invalid gdb_core path"
+				return
+			else
+				args.push '-core=' + core_path
 
 		if @outputPanel and @outputPanel.getInteractiveSession
 			interactiveSession = @outputPanel.getInteractiveSession()
@@ -373,17 +388,19 @@ module.exports = DbgGdb =
 
 	continue: ->
 		@cleanupFrame().then =>
-			@sendCommand '-exec-continue --all'
-				.catch (error) =>
-					if typeof error != 'string' then return
-					@handleMiError error
+			if !@options.gdb_core
+				@sendCommand '-exec-continue --all'
+					.catch (error) =>
+						if typeof error != 'string' then return
+						@handleMiError error
 
 	pause: ->
 		@cleanupFrame().then =>
-			@sendCommand '-exec-interrupt --all'
-				.catch (error) =>
-					if typeof error != 'string' then return
-					@handleMiError error
+			if !@options.gdb_core
+				@sendCommand '-exec-interrupt --all'
+					.catch (error) =>
+						if typeof error != 'string' then return
+						@handleMiError error
 
 	selectFrame: (index) ->
 		@cleanupFrame().then =>
@@ -521,24 +538,27 @@ module.exports = DbgGdb =
 
 	stepIn: ->
 		@cleanupFrame().then =>
-			@sendCommand '-exec-step'
-				.catch (error) =>
-					if typeof error != 'string' then return
-					@handleMiError error
+			if !@options.gdb_core
+				@sendCommand '-exec-step'
+					.catch (error) =>
+						if typeof error != 'string' then return
+						@handleMiError error
 
 	stepOver: ->
 		@cleanupFrame().then =>
-			@sendCommand '-exec-next'
-				.catch (error) =>
-					if typeof error != 'string' then return
-					@handleMiError error
+			if !@options.gdb_core
+				@sendCommand '-exec-next'
+					.catch (error) =>
+						if typeof error != 'string' then return
+						@handleMiError error
 
 	stepOut: ->
 		@cleanupFrame().then =>
-			@sendCommand '-exec-finish'
-				.catch (error) =>
-					if typeof error != 'string' then return
-					@handleMiError error
+			if !@options.gdb_core
+				@sendCommand '-exec-finish'
+					.catch (error) =>
+						if typeof error != 'string' then return
+						@handleMiError error
 
 	sendCommand: (command, logCallback) ->
 		if @processAwaiting
